@@ -15,5 +15,5 @@
 *~
 *.~*#
 *.sdf
-*.tolg
+*.tlog
 *.log
