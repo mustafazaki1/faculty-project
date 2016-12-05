@@ -1,0 +1,181 @@
+Include irvine16.inc
+
+FileControlBlock struc
+db 22 dup(?) ; header info 
+fileTime dw ? ; time stamp of file
+fileDate dw ? ; date stamp of file
+fileSize dd ? ; size of file
+fileName db 13 dup(0) ; name of file found by DOS
+FileControlBlock ends
+
+.data
+IterationIndex Byte 0
+K Byte 0
+
+A DWord 01234567h
+B DWord 89ABCDEFh
+C DWord 0FEDCBA98h
+D DWord 78543210h
+
+T DWord 0D76AA478h,0E8C7B756h,242070DBh,C1BDCEEEh,0F75C0FAFh,4787C62Ah,0A8304613h,0FD469501h,698098D8h,8B44F7AFh,0FFFF5BB1h,895CD7BEh,6B901122h,0FD987193h,0A679438Eh,49B40821h,
+		0F61E2562h,0C040B340h,265E5A51h,0E9B6C7AAh,0D62F105Dh,02441453h,0D8A1E681h,0E7D3FBC8h,21E1CDE6h,0C33707D6h,0F4D50D87h,455A14EDh,0A9E3E905h,0FCEFA3F8h,676F02D9h,8D2A4C8Ah
+		0FFFA3942h,8771F681h,699D6122h,0FDE5380Ch,0A4BEEA44h,4BDECFA9h,0F6BB4B60h,0BEBFBC70h,289B7EC6h,0EAA127FAh,0D4EF3085h,04881D05h,0D9D4D039h,0E6DB99E5h,1FA27CF8h,0C4AC5665h
+		0F4292244h,432AFF97h,0AB9423A7h,0FC93A039h,655B59C3h,8F0CCC92h,0FFEFF47Dh,85845DD1h,6FA87E4Fh,0FE2CE6E0h,0A3014314h,4E0811A1h,0F7537E82h,0BD3AF235h,2AD7D2BBh,0EB86D391h
+
+Rotation Byte 7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+			  5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+			  4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+			  6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21
+
+.code
+
+;----------------------------------------------------------------------------
+;Multpliy two numbers
+;Recieves: EDI Contains the first number
+		 : K Contains the second number
+;Returns : EDI Contains the result of the multiplication
+;----------------------------------------------------------------------------
+Multpliy PROC USES ECX
+mov ECX,EDI
+L:
+ADD EDI,K
+LOOP L
+RET
+Multiply ENDP
+
+;----------------------------------------------------------------------------
+;The First Funnction of MD5 Encryption (F(B,C,D)=(B AND C) OR (NOT B AND D)
+;Recieves: Values of B,C,D
+;Returns EBX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+F PROC USES ECX
+mov ebx,B
+AND ebx,C	;EBX=(B AND C)
+mov ecx,B
+neg ecx
+AND ecx,D	;ECX=(NOT B AND D)
+OR EBX,ECX
+RET
+F ENDP
+
+;----------------------------------------------------------------------------
+;The Second Funnction of MD5 Encryption (G(B,C,D)=(B AND D) OR (C AND NOT D)
+;Recieves: Values of B,C,D
+;Returns EDX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+G PROC USES EBX
+mov EBX,B
+AND EBX,D	;EBX= (B AND D)
+mov EDX,D
+neg EDX
+AND EDX,C	;EDX=(C AND NOT D)
+OR EDX,EBX
+RET
+G ENDP
+
+;----------------------------------------------------------------------------
+;The Third Funnction of MD5 Encryption (H(B,C,D)=B XOR C XOR D
+;Recieves: Values of B,C,D
+;Returns EAX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+H PROC
+mov EAX,B
+XOR EAX,C	;EAX=(B XOR C)
+XOR EAX,D
+RET
+H ENDP
+
+;----------------------------------------------------------------------------
+;The Fourth Funnction of MD5 Encryption (I(B,C,D)=C XOR (B OR NOT D)
+;Recieves: Values of B,C,D
+;Returns ECX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+I PROC USES EBX
+mov ECX,C
+mov EBX,D
+neg EBX
+OR EBX,B	;EBX=(B OR NOT D)
+XOR ECX,EBX
+RET
+I ENDP
+
+;----------------------------------------------------------------------------
+;The Funnction of MD5 
+;Recieves: EAX Contains result of one of the four encryption functions.
+		 : EBX Contains 32-bit block of data from current 512 bit block.
+		 : IterationIndex Conatins the index of the current round.
+;Returns (Modify) the values of the four variables A,B,C,D
+;----------------------------------------------------------------------------
+MD5 PROC USES EDX
+
+XOR EAX,A							;EAX=(EAX XOR A)
+XOR EAX,EBX							;EAX=(EAX XOR EBX)
+XOR EAX,T[IterationIndex]			;EAX=(EAX XOR Table)
+XOR EAX,Rotation[IterationIndex]	;EAX=(EAX Rotated)
+XOR EAX,B							;EAX=(EAX XOR B)
+
+mov EDX,D
+mov A,EDX
+mov EDX,C
+mov D,EDX
+mov EDX,B
+mov C,EDX
+mov B,EAX
+
+RET
+MD5 ENDP
+
+;----------------------------------------------------------------------------
+;The Funnction of MD5Controller 
+;Recieves:Nothing
+;Returns :Nothing
+;----------------------------------------------------------------------------
+MD5Controller PROC
+
+mov ECX,16
+FCall:
+mov SI,offset BUFFER+(k*32)
+INC K
+Call F
+mov EAX,EBX
+mov EBX,[SI]
+Call MD5
+INC IterationIndex
+LOOP FCall
+
+mov K,0
+mov ECX,16
+GCall:
+mov SI,offset BUFFER+(k*32)
+;K Calculation
+Call G
+mov EAX,EDX
+mov EBX,[SI]
+Call MD5
+INC IterationIndex
+LOOP GCall
+
+mov K,0
+mov ECX,16
+HCall:
+mov SI,offset BUFFER+(k*32)
+;K Calculation
+Call H
+mov EBX,[SI]
+Call MD5
+INC IterationIndex
+LOOP HCall
+
+mov K,0
+mov ECX,16
+ICall:
+mov SI,offset BUFFER+(k*32)
+LOOP ICall
+
+RET
+MD5Contoller ENDP
+
+main PROC
+.EXIT 
+main ENDP
+END main
