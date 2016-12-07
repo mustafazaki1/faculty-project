@@ -13,7 +13,6 @@ using namespace std;
 
 int main()
 {
-
 	SCA temp(100000);
 	int counter = 0;
 	cin >> counter;
@@ -21,11 +20,11 @@ int main()
 	for (int i = 0; i < counter; i++)
 	{
 		cin >> s1 >> s2;
-		pair<int, vector<int> > answer = temp.SCANouns(s1,s2);
+		pair<int, vector<string> > answer = temp.SCANouns(s1,s2);
 		cout << answer.first << " ------>" << endl;
 		for (int i = 0; i < answer.second.size(); i++)
 		{
-			cout << temp.DC.SynsetNoun[answer.second[i]] << endl;
+			cout << answer.second[i] << endl;
 		}
 	}
 	return 0;

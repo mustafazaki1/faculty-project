@@ -1,10 +1,9 @@
 #include "SCA.h"
 
-
 SCA::SCA(int size)
 {
 	DC.FillMap();
-	DC.Construct_graph();
+	DC.ConstructGraph();
 	VisitedNodes.resize(size); // visit
 	for (int i = 0; i < size; i++)
 	{
@@ -22,7 +21,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 	Counter++;
 	pair<int, vector<int> > answer;
 	answer.first = 1e9;
-		// W , cur node
+	// W , cur node
 	queue<BFSData> BFSQueue;
 	for (int i = 0; i < FirstGroup.size(); i++)
 	{
@@ -39,13 +38,13 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 		temp.curNode = SecondGroup[i];
 		temp.curWight = 0;
 		BFSQueue.push(temp);
-	}	
+	}
 	while (BFSQueue.size())
 	{
-		int curNode = BFSQueue.front().curNode, W = BFSQueue.front().curWight,curGroup=BFSQueue.front().curGroup;
+		int curNode = BFSQueue.front().curNode, W = BFSQueue.front().curWight, curGroup = BFSQueue.front().curGroup;
 		BFSQueue.pop();
 		//cout << curNode << " " << W << " " << curGroup << endl;
-		if ((VisitedNodes[curNode].first!=Counter&&curGroup==0)|| (VisitedNodes[curNode].second!=Counter&&curGroup == 1))
+		if ((VisitedNodes[curNode].first != Counter&&curGroup == 0) || (VisitedNodes[curNode].second != Counter&&curGroup == 1))
 		{
 			if (curGroup == 0)
 			{
@@ -112,12 +111,18 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 	}
 	return answer;
 }
-pair<int, vector<int> > SCA::SCANouns(string FirstNoun, string SecondNoun)
+pair<int, vector<string> > SCA::SCANouns(string FirstNoun, string SecondNoun)
 {
-	vector<int> FirstGroup = DC.mapNounToID(FirstNoun), SecondGroup = DC.mapNounToID(SecondNoun);
-	return BFS(DC.graph, FirstGroup, SecondGroup);
+	vector<int> FirstGroup = DC.MapNounToID(FirstNoun), SecondGroup = DC.MapNounToID(SecondNoun);
+	pair<int, vector<int> > Result = BFS(DC.Graph, FirstGroup, SecondGroup);
+	pair <int, vector<string>> NounsResult;
+	NounsResult.first = Result.first;
+	for (int i = 0; i < Result.second.size(); i++)
+	{
+		NounsResult.second.push_back(DC.MapIDToNoun(Result.second[i]));
+	}
+	return NounsResult;
 }
-
 SCA::~SCA()
 {
 }

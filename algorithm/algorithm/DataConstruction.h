@@ -7,21 +7,25 @@
 #include <vector>
 #include <map>
 #include <queue>
+#include <algorithm>
 typedef long long ll;
+
 using namespace std;
+
 class DataConstruction
 {
 private:
-	vector<string> split(string s, char delimiter); //Splitting a given string by a given delimiter
+	vector<string> Split(string S, char Delimiter); //Splitting a given string by a given delimiter
+	map<string, vector<int> >nounSynset;			//Each word to its synset id
+	vector<string>synsetNoun;						//Each synset id has its words
+
 public:
-	map<string, vector<int> >NounSynset;			//Each word to its synset id
-	vector<string>SynsetNoun;			//Each synset id has its words
-	vector< vector<int> >graph;
 	DataConstruction();
-	void FillMap();						//Construct the two mapping function
-	void Construct_graph();
-	vector<int> mapNounToID(string Noun);
-	string mapIDToNoun(int ID);
+	static vector< vector<int> >Graph;
+	void FillMap();						//Construct the two maps
+	void ConstructGraph();
+	vector<int> MapNounToID(string Noun);
+	string MapIDToNoun(int ID);
 	~DataConstruction();
 };
 

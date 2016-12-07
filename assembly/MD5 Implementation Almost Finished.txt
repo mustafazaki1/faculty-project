@@ -9,7 +9,8 @@ fileName db 13 dup(0) ; name of file found by DOS
 FileControlBlock ends
 
 .data
-IterationIndex Byte 0
+RotationIndex Byte 0
+TIndex Word 0
 K Byte 0
 
 A DWord 01234567h
@@ -110,8 +111,8 @@ MD5 PROC USES EDX
 
 XOR EAX,A							;EAX=(EAX XOR A)
 XOR EAX,EBX							;EAX=(EAX XOR EBX)
-XOR EAX,T[IterationIndex]			;EAX=(EAX XOR Table)
-XOR EAX,Rotation[IterationIndex]	;EAX=(EAX Rotated)
+XOR EAX,T[TIndex]			;EAX=(EAX XOR Table)
+XOR EAX,Rotation[RotationIndex]	;EAX=(EAX Rotated)
 XOR EAX,B							;EAX=(EAX XOR B)
 
 mov EDX,D
@@ -134,42 +135,54 @@ MD5Controller PROC
 
 mov ECX,16
 FCall:
-mov SI,offset BUFFER+(k*32)
+mov SI,offset BUFFER+(k*4)
 INC K
 Call F
 mov EAX,EBX
 mov EBX,[SI]
 Call MD5
-INC IterationIndex
+INC RotationIndex
+ADD TIndex,TYPEOF T
 LOOP FCall
 
 mov K,0
 mov ECX,16
 GCall:
-mov SI,offset BUFFER+(k*32)
+mov SI,offset BUFFER+(k*4)
 ;K Calculation
 Call G
 mov EAX,EDX
 mov EBX,[SI]
 Call MD5
-INC IterationIndex
+INC RotationIndex
+ADD TIndex,TYPEOF T
 LOOP GCall
 
 mov K,0
 mov ECX,16
 HCall:
-mov SI,offset BUFFER+(k*32)
+mov SI,offset BUFFER+(k*4)
 ;K Calculation
 Call H
 mov EBX,[SI]
 Call MD5
-INC IterationIndex
+INC RotationIndex
+ADD TIndex,TYPEOF T
 LOOP HCall
 
 mov K,0
 mov ECX,16
 ICall:
-mov SI,offset BUFFER+(k*32)
+mov SI,offset BUFFER+(k*4)
+;K Calculation
+PUSH ECX
+Call I
+mov EAX,ECX
+mov EBX,[SI]
+Call MD5
+INC RotationIndex
+ADD TIndex,TYPEOF T
+POP ECX
 LOOP ICall
 
 RET

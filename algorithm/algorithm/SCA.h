@@ -1,5 +1,6 @@
 #pragma once
 #include "DataConstruction.h"
+#include <iostream>
 using namespace std;
 
 class SCA
@@ -14,11 +15,12 @@ private:
 		int curNode;
 		int curGroup;
 	};
+
 public:
 	DataConstruction DC;
 	SCA(int size);
 	pair<int, vector<int> > BFS(vector<vector<int> > & Graph, vector<int> FirstGroup, vector<int> SecondGroup);
-	pair<int, vector<int> > SCANouns(string FirstNoun, string SecondNoun);
+	pair<int, vector<string> > SCANouns(string FirstNoun, string SecondNoun);
 	~SCA();
 };
 
