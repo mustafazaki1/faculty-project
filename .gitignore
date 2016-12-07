@@ -1,4 +1,7 @@
 /target/
+algorithm/Debug/
+algorithm/64/
+/algorithm/algorithm/Debug
 /bin/
 /build/
 /.classpath
