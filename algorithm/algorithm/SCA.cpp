@@ -73,6 +73,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 						temp.curNode = Graph[curNode][i];
 						if (temp.curWight <= answer.first)
 							BFSQueue.push(temp);
+						else break;
 					}
 				}
 			}
@@ -103,6 +104,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 						temp.curNode = Graph[curNode][i];
 						if (temp.curWight <= answer.first)
 							BFSQueue.push(temp);
+						else break;
 					}
 				}
 
