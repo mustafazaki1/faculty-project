@@ -6,6 +6,3 @@
 5,f,six
 6,g,seven
 7,h,eight
-8,i,nine
-9,j,ten
-10,k,eleven
