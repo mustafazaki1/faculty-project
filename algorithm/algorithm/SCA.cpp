@@ -1,9 +1,10 @@
 #include "SCA.h"
 
-SCA::SCA(int size)
+SCA::SCA()
 {
 	DC.FillMap();
 	DC.ConstructGraph();
+	int size = DC.Graph.size();
 	VisitedNodes.resize(size); // visit
 	for (int i = 0; i < size; i++)
 	{

@@ -1,6 +1,6 @@
 #include "DataConstruction.h"
 
-vector< vector<int> > DataConstruction:: Graph;
+vector< vector<int> > DataConstruction::Graph;
 DataConstruction::DataConstruction()
 {
 }

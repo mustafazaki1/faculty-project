@@ -17,7 +17,7 @@ class DataConstruction
 private:
 	vector<string> Split(string S, char Delimiter); //Splitting a given string by a given delimiter
 	map<string, vector<int> >nounSynset;			//Each word to its synset id
-	vector<string>synsetNoun;						//Each synset id has its words
+	vector<string>synsetNoun;					//Each synset id has its words
 
 public:
 	DataConstruction();

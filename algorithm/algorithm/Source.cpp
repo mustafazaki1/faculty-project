@@ -1,19 +1,12 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <stdio.h>
-#include <sstream>
-#include <vector>
-#include <map>
-#include <queue>
-#include <algorithm>
-#include "SCA.h"
+#include"WordNetSemantics.h"
 using namespace std;
 
 
 int main()
 {
-	SCA temp(100000);
+	WordNetSemantics WNS;
+	WNS.Run();
+	/*SCA temp;
 	int counter = 0;
 	cin >> counter;
 	string s1, s2;
@@ -26,6 +19,6 @@ int main()
 		{
 			cout << answer.second[i] << endl;
 		}
-	}
+	}*/
 	return 0;
 }
