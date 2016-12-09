@@ -21,7 +21,7 @@ private:
 
 public:
 	DataConstruction();
-	static vector< vector<int> >Graph;
+	vector< vector<int> >Graph;
 	void FillMap();						//Construct the two maps
 	void ConstructGraph();
 	vector<int> MapNounToID(string Noun);

@@ -1,6 +1,6 @@
 #include "DataConstruction.h"
 
-vector< vector<int> > DataConstruction::Graph;
+
 DataConstruction::DataConstruction()
 {
 }
@@ -24,7 +24,7 @@ vector<string> DataConstruction::Split(string S, char Delimiter) //Splitting a g
 	Words.push_back(Word);
 	return Words;
 }
-void DataConstruction::FillMap()							//Construct the two mapping function
+void DataConstruction::FillMap()				//Construct the two mapping function
 {
 	string line;
 	vector<string>parts;
@@ -37,6 +37,7 @@ void DataConstruction::FillMap()							//Construct the two mapping function
 		{
 			parts = Split(line, ',');   //Split each line comma
 			synsetNoun.push_back(parts[1]);   //Push the words in this synset as one stirng
+
 
 			words = Split(parts[1], ' ');   //Split each string of words by space
 			int size = words.size();
@@ -64,6 +65,7 @@ void DataConstruction::ConstructGraph()
 		{
 			hypernyms = Split(line, ',');			   //Split each line comma
 
+
 			size = hypernyms.size();
 			for (int i = 1; i < size; i++)
 			{
@@ -87,3 +89,7 @@ string DataConstruction::MapIDToNoun(int ID)
 DataConstruction::~DataConstruction()
 {
 }
+
+
+
+

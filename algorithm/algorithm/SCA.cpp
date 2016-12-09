@@ -1,30 +1,34 @@
 #include "SCA.h"
 
+
 SCA::SCA()
 {
 	DC.FillMap();
 	DC.ConstructGraph();
 	int size = DC.Graph.size();
-	VisitedNodes.resize(size); // visit
-	for (int i = 0; i < size; i++)
+	VisitedNodes.resize(size);
+
+
+	for (int i = 0; i < size; i++) 					// initialize visited array 
 	{
 		VisitedNodes[i].first = VisitedNodes[i].second = 0;
 	}
-	curWight.resize(size); // Wight
+	curWight.resize(size);
 	for (int i = 0; i < size; i++)
 	{
 		curWight[i].first = curWight[i].second = 0;
 	}
 	Counter = 0;
 }
+
+
 pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> FirstGroup, vector<int> SecondGroup)
 {
-	Counter++;
+	Counter++;                                       // Number of entrance time in this function and using it for checking if visit or not
 	pair<int, vector<int> > answer;
 	answer.first = 1e9;
-	// W , cur node
 	queue<BFSData> BFSQueue;
-	for (int i = 0; i < FirstGroup.size(); i++)
+	for (int i = 0; i < FirstGroup.size(); i++) 	//Push nodes contain first word to Queue
 	{
 		BFSData temp;
 		temp.curGroup = 0;
@@ -32,7 +36,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 		temp.curWight = 0;
 		BFSQueue.push(temp);
 	}
-	for (int i = 0; i < SecondGroup.size(); i++)
+	for (int i = 0; i < SecondGroup.size(); i++) 	//Push nodes contain second word to Queue
 	{
 		BFSData temp;
 		temp.curGroup = 1;
@@ -44,8 +48,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 	{
 		int curNode = BFSQueue.front().curNode, W = BFSQueue.front().curWight, curGroup = BFSQueue.front().curGroup;
 		BFSQueue.pop();
-		//cout << curNode << " " << W << " " << curGroup << endl;
-		if ((VisitedNodes[curNode].first != Counter&&curGroup == 0) || (VisitedNodes[curNode].second != Counter&&curGroup == 1))
+		if ((VisitedNodes[curNode].first != Counter&&curGroup == 0) || (VisitedNodes[curNode].second != Counter&&curGroup == 1)) 	//Check if the current Node visited by the groups or not
 		{
 			if (curGroup == 0)
 			{
@@ -109,6 +112,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 					}
 				}
 
+
 			}
 		}
 	}
@@ -129,3 +133,7 @@ pair<int, vector<string> > SCA::SCANouns(string FirstNoun, string SecondNoun)
 SCA::~SCA()
 {
 }
+
+
+
+
