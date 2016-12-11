@@ -18,7 +18,7 @@ vector<string> DataConstruction::Split(string S, char Delimiter) //Splitting a g
 		}
 		else
 		{
-			Word += S[i];
+			Word.push_back(S[i]);
 		}
 	}
 	Words.push_back(Word);
@@ -64,16 +64,13 @@ void DataConstruction::ConstructGraph()
 		while (getline(myfile, line))				   //Read line line from the file
 		{
 			hypernyms = Split(line, ',');			   //Split each line comma
-
-
+			Graph.push_back(hypernyms1);
 			size = hypernyms.size();
 			for (int i = 1; i < size; i++)
 			{
 				stringstream(hypernyms[i]) >> index;   //Convert each hypernyms from string to int
-				hypernyms1.push_back(index);		   //Push each hypernyms as int
+				Graph.back().push_back(index);		   //Push each hypernyms as int
 			}
-			Graph.push_back(hypernyms1);
-			hypernyms1.clear();
 		}
 	}
 	myfile.close();									   //Close the file
@@ -89,7 +86,3 @@ string DataConstruction::MapIDToNoun(int ID)
 DataConstruction::~DataConstruction()
 {
 }
-
-
-
-

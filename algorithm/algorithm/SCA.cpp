@@ -120,8 +120,7 @@ pair<int, vector<int> >	SCA::BFS(vector<vector<int> > & Graph, vector<int> First
 }
 pair<int, vector<string> > SCA::SCANouns(string FirstNoun, string SecondNoun)
 {
-	vector<int> FirstGroup = DC.MapNounToID(FirstNoun), SecondGroup = DC.MapNounToID(SecondNoun);
-	pair<int, vector<int> > Result = BFS(DC.Graph, FirstGroup, SecondGroup);
+	pair<int, vector<int> > Result = BFS(DC.Graph, DC.MapNounToID(FirstNoun), DC.MapNounToID(SecondNoun));
 	pair <int, vector<string>> NounsResult;
 	NounsResult.first = Result.first;
 	for (int i = 0; i < Result.second.size(); i++)

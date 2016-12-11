@@ -1,5 +1,5 @@
 4
-b,g
-a,b
-a,h
-a,c
+b , g
+a ,b
+a, h
+a  , c

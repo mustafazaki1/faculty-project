@@ -19,9 +19,10 @@ void WordNetSemantics::Run()
 		int counter = 0;
 		filetestcase>> counter;
 		string s1, s2;
+		filetestcase.ignore();
 		for (int i = 0; i < counter; i++)
 		{
-			filetestcase >> s1;
+			getline(filetestcase,s1);
 			stringstream ss;
 			for (int h = 0; h < s1.size(); h++)
 			{
@@ -38,11 +39,18 @@ void WordNetSemantics::Run()
 			fileout << s1 << "," << s2 << "		dist=" << answer.first << "	sca=";
 			for (int i = 0; i < answer.second.size(); i++)
 			{
-				if (i != answer.second.size() - 1)
-					fileout << answer.second[i] << " OR ";
-				else
-					fileout << answer.second[i] << endl;
+				ss.clear();
+				ss << answer.second[i];
+				ss >> s1;
+				fileout <<s1 ;
+				while (ss >> s1)
+				{
+					fileout << " OR " << s1;
+				}
+				if (answer.second.size() != i + 1)
+					fileout << " OR ";
 			}
+			fileout << endl;
 		}
 	}
 	else
