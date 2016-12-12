@@ -1,0 +1,3 @@
+b,c,e,h,a      outcast =  a
+k,d,f,b        outcast =  k
+d,f,g,j        outcast =  j

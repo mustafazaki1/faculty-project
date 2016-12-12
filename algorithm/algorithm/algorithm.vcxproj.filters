@@ -27,6 +27,9 @@
     <ClCompile Include="WordNetSemantics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="OutCast.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataConstruction.h">
@@ -36,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="WordNetSemantics.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OutCast.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

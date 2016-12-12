@@ -1,4 +1,4 @@
-b,g		dist=2	sca=h
-a,b		dist=1	sca=b
-a,h		dist=1	sca=h
-a,c		dist=2	sca=b OR d OR r OR q OR e OR f OR g OR h
+b,f		dist=3	sca=c
+k,f		dist=6	sca=c
+h,g		dist=1	sca=h
+a,g		dist=4	sca=c

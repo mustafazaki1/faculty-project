@@ -1,5 +1,6 @@
 #pragma once
 #include "SCA.h"
+#include "OutCast.h"
 
 class WordNetSemantics
 {
