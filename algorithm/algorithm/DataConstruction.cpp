@@ -26,6 +26,7 @@ vector<string> DataConstruction::Split(string S, char Delimiter) //Splitting a g
 }
 void DataConstruction::FillMap()				//Construct the two mapping function
 {
+	cout << "Constructing Maps ... " << endl;
 	string line;
 	vector<string>parts;
 	vector<string>words;
@@ -53,6 +54,7 @@ void DataConstruction::FillMap()				//Construct the two mapping function
 }
 void DataConstruction::ConstructGraph()
 {
+	cout << "Contsructing Ghraph ..." << endl;
 	string line;
 	vector<string>hypernyms;
 	vector<int>hypernyms1;

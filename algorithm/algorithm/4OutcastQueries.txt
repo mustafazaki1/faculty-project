@@ -1,4 +1,2 @@
-3
-b,c,e,h,a
-k,d,f,b 
-d,f,g,j 
+1
+bad_block,clupeid_fish,beta_test,binary_file,bps,block,angle_bracket,briefcase_computer,brilliant_pebble,buffer_storage,glitch,busbar,memory_cache,computer,CPU,checking_program
