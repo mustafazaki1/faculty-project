@@ -345,6 +345,7 @@ Call OpenFile
 mov AH,3Fh				;Read from file
 mov BX,FileHandle
 ReadData:
+Call ReadFile
 CMP AX , 0
 JE EndOfFile 
 mov CurrentSize , AX
