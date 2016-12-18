@@ -5,7 +5,7 @@ db 22 dup(?) 			;header info
 FileTime dw ? 			;time stamp of file
 FileDate dw ? 			;date stamp of file
 FileSize dd ? 			;size of file
-FileName db 13 dup(0) 	;name of file found by DOS
+FileName db 15 dup('!'),0 ;name of file found by DOS
 FileControlBlock ends
 
 .DATA
@@ -13,7 +13,7 @@ FolderPath db "C:\N\*.txt",0 	;Path of search folder
 DTA FileControlBlock <>			;Point the file data struct to user-defined DTA
 FileHandle dw ?
 BufferSize = 64					;To read 512-bit per time (64 byte)
-FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
+FileFullPath db 30 DUP(?),0	;File full path after adding name found by DOS to it
 Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
 CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
 
@@ -54,7 +54,8 @@ int 21h
 mov AH , 4Eh					;Dos function search for 1st matching file
 mov CX , 1						;Normal attribute
 mov DX , SI
-int 21h    
+int 21h   
+
 JC Quit                             ; call Dos
 RET
 FindFirstFile ENDP
@@ -77,21 +78,52 @@ FindNextFile ENDP
 ;		: DI contain offset that will contain file full path
 ;Returns FileFullPath contains the full path of file including file name
 ;----------------------------------------------------------------------------
-GetFilePath PROC USES ECX
+GetFilePath PROC USES ECX EDX
+mov eax,0
+mov ax,lengthof filefullpath
+call writedec
+call crlf
+mov ax, lengthof DTA.FileName
+call writedec
+call crlf
+mov ax, lengthof folderpath
+call writedec
+call crlf
+mov dx,offset filefullpath
+call writestring
+call crlf
+
+mov dx,offset DTA.FileName
+call writestring
+ call crlf
+
+mov dx,offset folderpath
+call writestring
+ call crlf
+
+mov bx,15
 CopyPath:					;Copy folder path into FileFullPath var
 CMP Byte Ptr [SI],'*'
-
 JE Break
-MOVSB
+mov cl,[si]
+mov [di],cl
+inc si
+inc di
+jmp downbreak
+Break:
+mov SI,offset DTA.FileName
+downbreak:
+dec bx
+cmp bx,0
+je target
 JMP CopyPath
 
-Break:
-mov CX,LENGTHOF DTA.FileName
-mov SI,offset DTA.FileName
-
-CLD
-REP MOVSB					;Append file name to file full path
-
+target:
+;mov si,offset filefullpath
+;mov SI,offset DTA.FileName
+mov dx,offset filefullpath
+call writestring
+call crlf
 RET
 GetFilePath ENDP
 
@@ -385,9 +417,6 @@ EncryptFiles:
 mov DI ,offset FileFullPath
 Call GetFilePath
 
-mov dx,DI
-call writestring
-;call crlf
 mov DX,offset FileFullPath
 Call OpenFile
 
