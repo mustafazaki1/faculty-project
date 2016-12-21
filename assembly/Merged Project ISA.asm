@@ -435,12 +435,13 @@ JB TwoBuffers
 
 Call MD5Controller
 Call ClearBuffer
-
 mov BL,80h
+mov SI,offset Buffer
 OR [SI],BL
 JMP AppendSize
 
 TwoBuffers:
+mov BL,80h
 OR [SI],BL
 mov CurrentSize,0
 Call MD5Controller
@@ -448,6 +449,7 @@ Call ClearBuffer
 JMP AppendSize
 
 OneBuffer:
+mov BL,80h
 OR [SI],BL
 
 AppendSize:
