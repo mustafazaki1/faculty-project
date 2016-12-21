@@ -391,6 +391,63 @@ LOOP ICall
 ;-------------------------------------------------------------------------
 RET
 MD5Controller ENDP
+
+;--------------------------------------------------------------------------
+;Clear part of the buffer
+;Recieves : CurrentSize containsnumber of last read bytes
+;Returns  : Buffer contains 0s only
+;--------------------------------------------------------------------------
+ClearBuffer PROC USES ECX EDI
+mov ECX,BufferSize
+Sub ECX,CurrentSize
+mov DI,offset Buffer[CurrentSize]
+
+Clear:
+mov [DI],00h
+inc DI
+LOOP Clear
+
+RET
+ClearBuffer ENDP
+
+;----------------------------------------------------------------------------------------------------------
+;Padding Function (Last Step Of Md5)
+;Append 1-bit=1 after data , 64-bit contain file size at the end of buffer and the rest between them is 0's
+;Recieves : CurrentSize contains number of last read bytes
+;Returns  : Buffer Padded
+;----------------------------------------------------------------------------------------------------------
+Padding PROC USES ESI
+Call ClearBuffer
+mov SI,offset Buffer[CurrentSize]
+CMP CurrentSize,55
+JBE OneBuffer
+
+CMP CurrentSize,64
+JB TwoBuffers
+
+Call ClearBuffer
+OR [SI],80h
+JMP AppendSize
+
+TwoBuffers:
+OR [SI],80h
+mov CurrentSize,0
+Call MD5Controller
+Call ClearBuffer
+JMP AppendSize
+
+OneBuffer:
+OR [SI],80h
+
+AppendSize:
+mov SI , LENGTHOF Buffer
+Sub SI , 4
+mov [SI],DTA.FileSize
+Call MD5Controller
+
+RET
+Padding ENDP
+
 ;----------------------------------------------------------------------------
 ;Rest Data of array Filefullpath
 ;Recieves : EAX
@@ -434,7 +491,7 @@ mov BX,FileHandle
 ReadData:
 Call ReadFile       
 mov dx,offset buffer
-CMP eAX , 0
+CMP EAX , 0
 JE EndOfFile 
 mov CurrentSize , AX
 Call MD5Controller 
@@ -443,8 +500,7 @@ JMP ReadData
 
 EndOfFile:
 mov dx,offset buffer
-;Call Padding
-;Call MD5Controller
+Call Padding
 
 PUSH EAX
 mov EAX,A
