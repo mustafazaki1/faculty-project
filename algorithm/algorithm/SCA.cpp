@@ -1,10 +1,15 @@
 #include "SCA.h"
-
+#include <time.h>      
+#include <math.h>
 
 SCA::SCA()
 {
+	clock_t b;
+	b = clock();
 	DC.FillMap();
 	DC.ConstructGraph();
+	b = clock() - b;
+	cout << ((float)b) / CLOCKS_PER_SEC << endl;
 	int size = DC.Graph.size();
 	VisitedNodes.resize(size);
 

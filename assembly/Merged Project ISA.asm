@@ -5,7 +5,7 @@ db 22 dup(?) 			;header info
 FileTime dw ? 			;time stamp of file
 FileDate dw ? 			;date stamp of file
 FileSize dd ? 			;size of file
-FileName db 13 dup(0) 	;name of file found by DOS
+FileName db 64 dup(0) 	;name of file found by DOS
 FileControlBlock ends
 
 .DATA
@@ -18,7 +18,7 @@ Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
 CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
 
 RotationIndex Byte 0			;Index to Rotation array to indicate number of rotations per round
-TIndex Word 0					;Index to T array to use per round
+TIndex DWord 0					;Index to T array to use per round
 K DWord 0
 
 A DWord 01234567h
@@ -78,20 +78,30 @@ FindNextFile ENDP
 ;Returns FileFullPath contains the full path of file including file name
 ;----------------------------------------------------------------------------
 GetFilePath PROC USES ECX
+inc DI
+mov dx,di
+
 CopyPath:					;Copy folder path into FileFullPath var
 CMP Byte Ptr [SI],'*'
-
 JE Break
-MOVSB
+mov AL,[SI]
+mov [DI],AL
+inc SI
+inc DI
 JMP CopyPath
 
 Break:
-mov CX,LENGTHOF DTA.FileName
 mov SI,offset DTA.FileName
 
-CLD
-REP MOVSB					;Append file name to file full path
-
+AppendFileName:						;Append file name to file full path
+cmp Byte Ptr [SI],0
+je Break1
+mov AL,[SI]
+mov [DI],AL
+inc SI
+inc DI
+JMP AppendFileName
+Break1:
 RET
 GetFilePath ENDP
 
@@ -101,6 +111,7 @@ GetFilePath ENDP
 ;Returns Nothing
 ;----------------------------------------------------------------------------
 OpenFile PROC USES EAX
+inc DX
 mov AH,3Dh			;Open file
 mov AL,2			;Choose the input mode(2 to read&write)
 int 21h
@@ -115,6 +126,7 @@ OpenFile ENDP
 ;Returns AX conatains number of bytes retrieved from the file 
 ;----------------------------------------------------------------------------
 ReadFile PROC USES ECX EDX
+mov AH,3Fh  ;Read from file
 mov CX,  BufferSize		;Number of bytes to read 
 mov DX,offset Buffer                                              
 int 21h  
@@ -129,10 +141,12 @@ ReadFile ENDP
 ;Returns Nothing
 ;----------------------------------------------------------------------------
 WriteEncryptedData PROC USES EAX ECX EBX
+
 mov AH , 3Ch			;If the file already exist overwrite data in it, If file not exist create it
 mov CX , 0				;Normal attribute
 int 21h
 JC Quit
+mov dx,si
 mov AH , 40h			;Write data to file
 mov CX , 16				;To write 128-bit returned from Md5
 mov BX , FileHandle
@@ -220,16 +234,17 @@ I ENDP
 ;		 : IterationIndex Conatins the index of the current round.
 ;Returns (Modify) the values of the four variables A,B,E,D
 ;----------------------------------------------------------------------------
-MD5 PROC USES EDX
+MD5 PROC USES EDX ECX
 
 XOR EAX,A							;EAX=(EAX XOR A)
 XOR EAX,EBX							;EAX=(EAX XOR EBX)
 PUSH ESI
-movsx ESI,TIndex
+mov ESI,TIndex
 XOR EAX,T[ESI]						;EAX=(EAX XOR Table)
 movsx ESI, RotationIndex
 mov EAX,0
-XOR AL,Rotation[ESI]				;EAX=(EAX Rotated)
+mov CL,Rotation[ESI]
+ROL AL,CL				;EAX=(EAX Rotated)
 POP ESI
 XOR EAX,B							;EAX=(EAX XOR B)
 
@@ -249,11 +264,13 @@ MD5 ENDP
 ;Recieves:Nothing
 ;Returns :Nothing
 ;----------------------------------------------------------------------------
-MD5Controller PROC
+MD5Controller PROC USES EAX EBX ECX EDX ESI EDI
+mov Rotationindex,0
+mov TIndex,0
 
 mov ECX,16
 FCall:
-PUSH AX
+PUSH EAX
 PUSH EBX
 mov EAX,0
 mov BX,WORD PTR K
@@ -264,7 +281,7 @@ ADD AX,BX
 mov SI,offset BUFFER
 ADD SI,AX
 POP EBX
-POP AX
+POP EAX
 INC K
 Call F
 mov EAX,EBX
@@ -273,7 +290,7 @@ Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
 LOOP FCall
-
+;------------------------------------------------------------------------------------
 mov K,0
 mov ECX,16
 GCall:
@@ -305,6 +322,8 @@ Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
 LOOP GCall
+;-------------------------------------------------------------------------------
+
 
 mov K,0
 mov ECX,16
@@ -336,7 +355,7 @@ Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
 LOOP HCall
-
+;-----------------------------------------------------------------------------
 mov K,0
 mov ECX,16
 ICall:
@@ -368,10 +387,29 @@ Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
 POP ECX
-LOOP ICall
+LOOP ICall	
+;-------------------------------------------------------------------------
 RET
 MD5Controller ENDP
-
+;----------------------------------------------------------------------------
+;Rest Data of array Filefullpath
+;Recieves : EAX
+;Returns  : Nothing
+;---------------------------------------------------------------------------
+ResetData PROC USES EAX
+mov DI,offset FileFullPath
+mov CX,LENGTHOF FileFullPath
+mov EAX,0
+Target:
+mov [DI],AL
+inc DI
+loop Target
+mov A,01234567h
+mov B,89ABCDEFh
+mov E,0FEDCBA98h
+mov D,78543210h
+ret
+ResetData ENDP
 ;----------------------------------------------------------------------------
 ;The Main Controller of the project to call all functions
 ;Recieves: Nothing
@@ -382,26 +420,29 @@ mov SI , offset FolderPath
 Call FindFirstFile
 
 EncryptFiles:
+mov SI , offset FolderPath
 mov DI ,offset FileFullPath
 Call GetFilePath
 
-mov dx,DI
-call writestring
-;call crlf
-mov DX,offset FileFullPath
+
+mov DX,offset filefullpath
+
 Call OpenFile
 
-mov AH,3Fh				;Read from file
-mov BX,FileHandle
+			
+mov BX,FileHandle  
 ReadData:
-Call ReadFile
-CMP AX , 0
+Call ReadFile       
+mov dx,offset buffer
+CMP eAX , 0
 JE EndOfFile 
 mov CurrentSize , AX
-Call MD5Controller                                                                             
+Call MD5Controller 
+                                                                            
 JMP ReadData
 
 EndOfFile:
+mov dx,offset buffer
 ;Call Padding
 ;Call MD5Controller
 
@@ -421,10 +462,12 @@ int 21h
 
 mov SI,offset HashedData
 mov DX,offset FileFullPath
+inc dx
+
 Call WriteEncryptedData
 
+call ResetData
 Call FindNextFile
-
 JMP EncryptFiles
 
 RET
