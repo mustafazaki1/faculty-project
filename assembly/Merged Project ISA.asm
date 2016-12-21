@@ -401,6 +401,8 @@ ClearBuffer PROC USES ECX EDI EBX
 mov ECX,0
 mov CX,BufferSize
 Sub CX,CurrentSize
+cmp CX,0
+je Ext
 mov BX,CurrentSize
 mov DI,offset Buffer
 ADD DI,BX
@@ -411,7 +413,7 @@ mov BL,00h
 mov [DI],BL
 inc DI
 LOOP Clear
-
+Ext:
 RET
 ClearBuffer ENDP
 
@@ -500,18 +502,17 @@ Call OpenFile
 			
 mov BX,FileHandle  
 ReadData:
+mov EAX,0
 Call ReadFile       
 add TotalSize,EAX
+mov CurrentSize , AX
 mov EAX,TotalSize
 CMP  EAX, DTA.FileSize
-JE EndOfFile 
-mov dx,offset buffer
-mov CurrentSize , AX
+JE EndOfFile
 Call MD5Controller                                                               
 JMP ReadData
 
 EndOfFile:
-mov dx,offset buffer
 Call Padding
 
 PUSH EAX
