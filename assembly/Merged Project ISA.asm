@@ -397,13 +397,18 @@ MD5Controller ENDP
 ;Recieves : CurrentSize containsnumber of last read bytes
 ;Returns  : Buffer contains 0s only
 ;--------------------------------------------------------------------------
-ClearBuffer PROC USES ECX EDI
-mov ECX,BufferSize
-Sub ECX,CurrentSize
-mov DI,offset Buffer[CurrentSize]
+ClearBuffer PROC USES ECX EDI EBX
+mov ECX,0
+mov CX,BufferSize
+Sub CX,CurrentSize
+mov BX,CurrentSize
+mov DI,offset Buffer
+ADD DI,BX
+mov BX,0
 
 Clear:
-mov [DI],00h
+mov BL,00h
+mov [DI],BL
 inc DI
 LOOP Clear
 
@@ -416,32 +421,36 @@ ClearBuffer ENDP
 ;Recieves : CurrentSize contains number of last read bytes
 ;Returns  : Buffer Padded
 ;----------------------------------------------------------------------------------------------------------
-Padding PROC USES ESI
+Padding PROC USES ESI EBX
 Call ClearBuffer
-mov SI,offset Buffer[CurrentSize]
+mov SI,offset Buffer
+ADD SI,CurrentSize
 CMP CurrentSize,55
 JBE OneBuffer
 
 CMP CurrentSize,64
 JB TwoBuffers
 
+Call MD5Controller
 Call ClearBuffer
-OR [SI],80h
+
+mov BL,80h
+OR [SI],BL
 JMP AppendSize
 
 TwoBuffers:
-OR [SI],80h
+OR [SI],BL
 mov CurrentSize,0
 Call MD5Controller
 Call ClearBuffer
 JMP AppendSize
 
 OneBuffer:
-OR [SI],80h
+OR [SI],BL
 
 AppendSize:
-mov SI , LENGTHOF Buffer
-Sub SI , 4
+mov SI , offset Buffer
+add SI,60
 mov EBX,DTA.FileSize
 mov [SI],EBX
 Call MD5Controller
