@@ -16,7 +16,7 @@ BufferSize = 64					;To read 512-bit per time (64 byte)
 FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
 Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
 CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
-
+TotalSize dword 0				;To count how many characters remaon
 RotationIndex Byte 0			;Index to Rotation array to indicate number of rotations per round
 TIndex DWord 0					;Index to T array to use per round
 K DWord 0
@@ -471,6 +471,7 @@ Target:
 mov [DI],AL
 inc DI
 loop Target
+mov TotalSize,0
 mov A,01234567h
 mov B,89ABCDEFh
 mov E,0FEDCBA98h
@@ -500,12 +501,13 @@ Call OpenFile
 mov BX,FileHandle  
 ReadData:
 Call ReadFile       
-mov dx,offset buffer
-CMP EAX , 0
+add TotalSize,EAX
+mov EAX,TotalSize
+CMP  EAX, DTA.FileSize
 JE EndOfFile 
+mov dx,offset buffer
 mov CurrentSize , AX
-Call MD5Controller 
-                                                                            
+Call MD5Controller                                                               
 JMP ReadData
 
 EndOfFile:
