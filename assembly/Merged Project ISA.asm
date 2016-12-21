@@ -442,7 +442,8 @@ OR [SI],80h
 AppendSize:
 mov SI , LENGTHOF Buffer
 Sub SI , 4
-mov [SI],DTA.FileSize
+mov EBX,DTA.FileSize
+mov [SI],EBX
 Call MD5Controller
 
 RET
