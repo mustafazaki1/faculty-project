@@ -398,20 +398,20 @@ MD5Controller ENDP
 ;Returns  : Buffer contains 0s only
 ;--------------------------------------------------------------------------
 ClearBuffer PROC USES ECX EDI EBX
-mov ECX,0
-mov CX,BufferSize
+Mov ECX,0
+Mov CX,BufferSize
 Sub CX,CurrentSize
-cmp CX,0
-je Ext
-mov BX,CurrentSize
-mov DI,offset Buffer
+Cmp CX,0
+JE Ext
+Mov BX,CurrentSize
+Mov DI,offset Buffer
 ADD DI,BX
-mov BX,0
+Mov BX,0
 
 Clear:
-mov BL,00h
-mov [DI],BL
-inc DI
+Mov BL,00h
+Mov [DI],BL
+Inc DI
 LOOP Clear
 Ext:
 RET
@@ -425,7 +425,7 @@ ClearBuffer ENDP
 ;----------------------------------------------------------------------------------------------------------
 Padding PROC USES ESI EBX
 Call ClearBuffer
-mov SI,offset Buffer
+Mov SI,offset Buffer
 ADD SI,CurrentSize
 CMP CurrentSize,55
 JBE OneBuffer
@@ -434,29 +434,30 @@ CMP CurrentSize,64
 JB TwoBuffers
 
 Call MD5Controller
+Mov CurrentSize,0
 Call ClearBuffer
-mov BL,80h
-mov SI,offset Buffer
+Mov BL,80h
+Mov SI,offset Buffer
 OR [SI],BL
 JMP AppendSize
 
 TwoBuffers:
-mov BL,80h
+Mov BL,80h
 OR [SI],BL
-mov CurrentSize,0
 Call MD5Controller
+Mov CurrentSize,0
 Call ClearBuffer
 JMP AppendSize
 
 OneBuffer:
-mov BL,80h
+Mov BL,80h
 OR [SI],BL
 
 AppendSize:
-mov SI , offset Buffer
-add SI,60
-mov EBX,DTA.FileSize
-mov [SI],EBX
+Mov SI , offset Buffer
+Add SI,60
+Mov EBX,DTA.FileSize
+Mov [SI],EBX
 Call MD5Controller
 
 RET
@@ -505,7 +506,8 @@ Call OpenFile
 mov BX,FileHandle  
 ReadData:
 mov EAX,0
-Call ReadFile       
+Call ReadFile   
+mov DX,offset Buffer    
 add TotalSize,EAX
 mov CurrentSize , AX
 mov EAX,TotalSize
@@ -513,8 +515,8 @@ CMP  EAX, DTA.FileSize
 JE EndOfFile
 Call MD5Controller                                                               
 JMP ReadData
-
 EndOfFile:
+
 Call Padding
 
 PUSH EAX
