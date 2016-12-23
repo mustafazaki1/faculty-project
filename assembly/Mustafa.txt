@@ -16,7 +16,7 @@ BufferSize = 64					;To read 512-bit per time (64 byte)
 FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
 Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
 CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
-
+TotalSize dword 0				;To count how many characters remaon
 RotationIndex Byte 0			;Index to Rotation array to indicate number of rotations per round
 TIndex DWord 0					;Index to T array to use per round
 K DWord 0
@@ -25,6 +25,10 @@ A DWord 01234567h
 B DWord 89ABCDEFh
 E DWord 0FEDCBA98h
 D DWord 78543210h
+TempA DWord 0
+TempB DWord 0
+TempE DWord 0
+TempD DWord 0
 
 T DWord 0D76AA478h,0E8C7B756h,242070DBh,0C1BDCEEEh,0F75C0FAFh,4787C62Ah,0A8304613h,0FD469501h,698098D8h,8B44F7AFh,0FFFF5BB1h,895CD7BEh,6B901122h,0FD987193h,0A679438Eh,49B40821h
   DWord 0F61E2562h,0C040B340h,265E5A51h,0E9B6C7AAh,0D62F105Dh,02441453h,0D8A1E681h,0E7D3FBC8h,21E1CDE6h,0C33707D6h,0F4D50D87h,455A14EDh,0A9E3E905h,0FCEFA3F8h,676F02D9h,8D2A4C8Ah
@@ -156,74 +160,62 @@ mov AH , 3Eh			;Close File
 int 21h
 RET
 WriteEncryptedData ENDP
-
 ;----------------------------------------------------------------------------
-;Multpliy two numbers
-;Recieves: EDI Contains the first number
-;		 : K Contains the second number
-;Returns : EDI Contains the result of the multiplication
-;----------------------------------------------------------------------------
-Multiply PROC USES ECX
-mov ECX,EDI
-L:
-ADD EDI,K
-LOOP L
-RET
-Multiply ENDP
-
-;----------------------------------------------------------------------------
-;The First Funnction of MD5 Encryption (F(B,E,D)=(B AND E) OR (NOT B AND D)
-;Recieves: Values of B,E,D
+;The First Funnction of MD5 Encryption (F(TempB,TempE,TempD)=(TempB AND TempE) OR (NOT TempB AND TempD)
+;Recieves: Values of TempB,TempE,TempD
 ;Returns EBX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 F PROC USES ECX
-mov EBX,B
-AND EBX,E	;EBX=(B AND E)
-mov ECX,B
+mov EBX,TempB
+AND EBX,TempE	;EBX=(TempB AND TempE)
+mov ECX,TempB
 neg ECX
-AND ECX,D	;ECX=(NOT B AND D)
+dec ECX
+AND ECX,TempD	;ECX=(NOT TempB AND TempD)
 OR EBX,ECX
 RET
 F ENDP
 
 ;----------------------------------------------------------------------------
-;The Second Funnction of MD5 Encryption (G(B,E,D)=(B AND D) OR (E AND NOT D)
-;Recieves: Values of B,E,D
+;The Second Funnction of MD5 Encryption (G(TempB,TempE,TempD)=(TempB AND TempD) OR (TempE AND NOT TempD)
+;Recieves: Values of TempB,TempE,TempD
 ;Returns EDX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 G PROC USES EBX
-mov EBX,B
-AND EBX,D	;EBX= (B AND D)
-mov EDX,D
+mov EBX,TempB
+AND EBX,TempD	;EBX= (TempB AND TempD)
+mov EDX,TempD
 neg EDX
-AND EDX,E	;EDX=(E AND NOT D)
+dec EDX
+AND EDX,TempE	;EDX=(TempE AND NOT TempD)
 OR EDX,EBX
 RET
 G ENDP
 
 ;----------------------------------------------------------------------------
-;The Third Funnction of MD5 Encryption (H(B,E,D)=B XOR E XOR D
-;Recieves: Values of B,E,D
-;Returns EAX Contains the value returned form the equation
+;The Third Funnction of MD5 Encryption (H(TempB,TempE,TempD)=TempB XOR TempE XOR TempD
+;Recieves: Values of TempB,TempE,TempD
+;Returns EDX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 H PROC
-mov EAX,B
-XOR EAX,E	;EAX=(B XOR E)
-XOR EAX,D
+mov EDX,TempB
+XOR EDX,TempE	;EDX=(TempB XOR TempE)
+XOR EDX,TempD
 RET
 H ENDP
 
 ;----------------------------------------------------------------------------
-;The Fourth Funnction of MD5 Encryption (I(B,E,D)=E XOR (B OR NOT D)
+;The Fourth Funnction of MD5 Encryption (I(TempB,TempE,TempD)=TempE XOR (TempB OR NOT TempD)
 ;Recieves: Values of B,E,D
-;Returns ECX Contains the value returned form the equation
+;Returns EDX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 I PROC USES EBX
-mov ECX,E
-mov EBX,D
+mov EDX,TempE
+mov EBX,TempD
 neg EBX
-OR EBX,B	;EBX=(B OR NOT D)
-XOR ECX,EBX
+dec EBX
+OR EBX,TempB	;EBX=(TempB OR NOT TempD)
+XOR EDX,EBX
 RET
 I ENDP
 
@@ -232,29 +224,27 @@ I ENDP
 ;Recieves: EAX Contains result of one of the four encryption functions.
 ;		 : EBX Contains 32-bit block of data from current 512 bit block.
 ;		 : IterationIndex Conatins the index of the current round.
-;Returns (Modify) the values of the four variables A,B,E,D
+;Returns (Modify) the values of the four variables TempA,TempB,TempE,TempD
 ;----------------------------------------------------------------------------
 MD5 PROC USES EDX ECX
 
-XOR EAX,A							;EAX=(EAX XOR A)
-XOR EAX,EBX							;EAX=(EAX XOR EBX)
+ADD EAX,TempA							;EAX=(EAX ADD A)
+ADD EAX,EBX							;EAX=(EAX ADD EBX)
 PUSH ESI
 mov ESI,TIndex
-XOR EAX,T[ESI]						;EAX=(EAX XOR Table)
+ADD EAX,T[ESI]						;EAX=(EAX ADD Table)
 movsx ESI, RotationIndex
-mov EAX,0
 mov CL,Rotation[ESI]
-ROL AL,CL				;EAX=(EAX Rotated)
+ROL EAX,CL				;EAX=(EAX Rotated)
 POP ESI
-XOR EAX,B							;EAX=(EAX XOR B)
 
-mov EDX,D
-mov A,EDX
-mov EDX,E
-mov D,EDX
-mov EDX,B
-mov E,EDX
-mov B,EAX
+mov EDX,TempD
+mov ECX,TempE
+mov TempD,ECX
+mov ECX,TempB
+mov TempE,ECX
+add TempB,EAX 							;EAX=(EAX ADD B)
+mov TempA,EDX
 
 RET
 MD5 ENDP
@@ -265,132 +255,200 @@ MD5 ENDP
 ;Returns :Nothing
 ;----------------------------------------------------------------------------
 MD5Controller PROC USES EAX EBX ECX EDX ESI EDI
+
+push EAX
+mov EAX,A
+mov TempA,EAX
+mov EAX,B
+mov TempB,EAX
+mov EAX,E
+mov TempE,EAX
+mov EAX,D
+mov TempD,EAX
+pop EAX
 mov Rotationindex,0
 mov TIndex,0
+mov K,0
 
 mov ECX,16
 FCall:
 PUSH EAX
 PUSH EBX
-mov EAX,0
-mov BX,WORD PTR K
-mov AX,BX
-ADD AX,BX
-ADD AX,BX
-ADD AX,BX
+mov EBX,4
+mov AX,WORD PTR K
+mul BX
 mov SI,offset BUFFER
 ADD SI,AX
 POP EBX
 POP EAX
-INC K
 Call F
 mov EAX,EBX
 mov EBX,[SI]
 Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
+INC K
 LOOP FCall
 ;------------------------------------------------------------------------------------
+
 mov K,0
 mov ECX,16
 GCall:
-mov EDI,5
-Call Multiply
-mov K,EDI
-ADD K,1
-mov K,EAX
+mov EAX,K
+mov EBX,5
+mul EBX
+inc EAX
 mov EDX,0
 mov EBX,16
 DIV EBX
-mov K,EDX
-PUSH AX
-PUSH EBX
-mov EAX,0
-mov BX,WORD PTR K
-mov AX,BX
-ADD AX,BX
-ADD AX,BX
-ADD AX,BX
+mov EAX,EDX
+mov EBX,4
+mul EBX
 mov SI,offset BUFFER
 ADD SI,AX
-POP EBX
-POP AX
 Call G
 mov EAX,EDX
 mov EBX,[SI]
 Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
+inc K
 LOOP GCall
-;-------------------------------------------------------------------------------
 
+;-------------------------------------------------------------------------------
 
 mov K,0
 mov ECX,16
 HCall:
-mov EDI,3
-Call Multiply
-mov K,EDI
-ADD K,5
-mov K,EAX
+mov EAX,K
+mov EBX,3
+mul EBX
+add EAX,5
 mov EDX,0
 mov EBX,16
 DIV EBX
-mov K,EDX
-PUSH AX
-PUSH EBX
-mov EAX,0
-mov BX,WORD PTR K
-mov AX,BX
-ADD AX,BX
-ADD AX,BX
-ADD AX,BX
+mov EAX,EDX
+mov EBX,4
+mul EBX
 mov SI,offset BUFFER
 ADD SI,AX
-POP EBX
-POP AX
 Call H
 mov EBX,[SI]
 Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
+inc K
 LOOP HCall
 ;-----------------------------------------------------------------------------
+
 mov K,0
 mov ECX,16
 ICall:
-mov EDI,7
-Call Multiply
-mov K,EDI
-mov K,EAX
+mov EAX,K
+mov EBX,7
+mul EBX
 mov EDX,0
 mov EBX,16
 DIV EBX
-mov K,EDX
-PUSH AX
-PUSH EBX
-mov EAX,0
-mov BX,WORD PTR K
-mov AX,BX
-ADD AX,BX
-ADD AX,BX
-ADD AX,BX
+mov EAX,EDX
+mov EBX,4
+mul EBX
 mov SI,offset BUFFER
 ADD SI,AX
-POP EBX
-POP AX
-PUSH ECX
 Call I
-mov EAX,ECX
 mov EBX,[SI]
 Call MD5
 INC RotationIndex
 ADD TIndex,TYPE T
-POP ECX
+inc K
 LOOP ICall	
 ;-------------------------------------------------------------------------
+
+push EAX
+mov EAX,TempA
+ADD A,EAX
+mov EAX,TempB
+ADD B,EAX
+mov EAX,TempE
+ADD E,EAX
+mov EAX,TempD
+ADD D,EAX
+pop EAX
+
 RET
 MD5Controller ENDP
+
+;--------------------------------------------------------------------------
+;Clear part of the buffer
+;Recieves : CurrentSize containsnumber of last read bytes
+;Returns  : Buffer contains 0s only
+;--------------------------------------------------------------------------
+ClearBuffer PROC USES ECX EDI EBX
+Mov ECX,0
+Mov CX,BufferSize
+Sub CX,CurrentSize
+Cmp CX,0
+JE Ext
+Mov BX,CurrentSize
+Mov DI,offset Buffer
+ADD DI,BX
+Mov BX,0
+
+Clear:
+Mov BL,41h
+Mov [DI],BL
+Inc DI
+LOOP Clear
+Ext:
+RET
+ClearBuffer ENDP
+
+;----------------------------------------------------------------------------------------------------------
+;Padding Function (Last Step Of Md5)
+;Append 1-bit=1 after data , 64-bit contain file size at the end of buffer and the rest between them is 0's
+;Recieves : CurrentSize contains number of last read bytes
+;Returns  : Buffer Padded
+;----------------------------------------------------------------------------------------------------------
+Padding PROC USES ESI EBX
+Call ClearBuffer
+Mov SI,offset Buffer
+ADD SI,CurrentSize
+CMP CurrentSize,55
+JBE OneBuffer
+
+CMP CurrentSize,64
+JB TwoBuffers
+
+Call MD5Controller
+Mov CurrentSize,0
+Call ClearBuffer
+Mov BL,80h
+Mov SI,offset Buffer
+OR [SI],BL
+JMP AppendSize
+
+TwoBuffers:
+Mov BL,80h
+OR [SI],BL
+Call MD5Controller
+Mov CurrentSize,0
+Call ClearBuffer
+JMP AppendSize
+
+OneBuffer:
+Mov BL,80h
+OR [SI],BL
+
+AppendSize:
+Mov SI , offset Buffer
+Add SI,60
+Mov EBX,DTA.FileSize
+Mov [SI],EBX
+Call MD5Controller
+
+RET
+Padding ENDP
+
 ;----------------------------------------------------------------------------
 ;Rest Data of array Filefullpath
 ;Recieves : EAX
@@ -404,6 +462,7 @@ Target:
 mov [DI],AL
 inc DI
 loop Target
+mov TotalSize,0
 mov A,01234567h
 mov B,89ABCDEFh
 mov E,0FEDCBA98h
@@ -432,40 +491,41 @@ Call OpenFile
 			
 mov BX,FileHandle  
 ReadData:
-Call ReadFile       
-mov dx,offset buffer
-CMP eAX , 0
-JE EndOfFile 
+mov EAX,0
+Call ReadFile   
+mov DX,offset Buffer    
+add TotalSize,EAX
 mov CurrentSize , AX
-Call MD5Controller 
-                                                                            
+mov EAX,TotalSize
+CMP  EAX, DTA.FileSize
+JE EndOfFile
+Call MD5Controller                                                               
 JMP ReadData
-
 EndOfFile:
-mov dx,offset buffer
-;Call Padding
-;Call MD5Controller
+
+Call Padding
 
 PUSH EAX
 mov EAX,A
+call writehex
 mov HashedData[0],EAX
 mov EAX,B
+call writehex
 mov HashedData[4],EAX
 mov EAX,E
+call writehex
 mov HashedData[8],EAX
 mov EAX,D
+call writehex
 mov HashedData[12],EAX
 POP EAX
-
-mov AH , 3Eh			;Close file
-int 21h
-
+call crlf
 mov SI,offset HashedData
 mov DX,offset FileFullPath
 inc dx
-
 Call WriteEncryptedData
-
+mov AH , 3Eh			;Close file
+int 21h
 call ResetData
 Call FindNextFile
 JMP EncryptFiles
