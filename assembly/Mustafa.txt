@@ -12,7 +12,7 @@ FileControlBlock ends
 FolderPath db "C:\N\*.txt",0 	;Path of search folder
 DTA FileControlBlock <>			;Point the file data struct to user-defined DTA
 FileHandle dw ?
-BufferSize = 64					;To read 512-bit per time (64 byte)
+BufferSize = 65					;To read 512-bit per time (64 byte)
 FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
 Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
 CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
@@ -32,7 +32,7 @@ TempD DWord 0
 
 T DWord 0D76AA478h,0E8C7B756h,242070DBh,0C1BDCEEEh,0F75C0FAFh,4787C62Ah,0A8304613h,0FD469501h,698098D8h,8B44F7AFh,0FFFF5BB1h,895CD7BEh,6B901122h,0FD987193h,0A679438Eh,49B40821h
   DWord 0F61E2562h,0C040B340h,265E5A51h,0E9B6C7AAh,0D62F105Dh,02441453h,0D8A1E681h,0E7D3FBC8h,21E1CDE6h,0C33707D6h,0F4D50D87h,455A14EDh,0A9E3E905h,0FCEFA3F8h,676F02D9h,8D2A4C8Ah
-  DWord 0FFFA3942h,8771F681h,699D6122h,0FDE5380Ch,0A4BEEA44h,4BDECFA9h,0F6BB4B60h,0BEBFBC70h,289B7EC6h,0EAA127FAh,0D4EF3085h,04881D05h,0D9D4D039h,0E6DB99E5h,1FA27CF8h,0C4AC5665h
+  DWord 0FFFA3942h,8771F681h,6D9D6122h,0FDE5380Ch,0A4BEEA44h,4BDECFA9h,0F6BB4B60h,0BEBFBC70h,289B7EC6h,0EAA127FAh,0D4EF3085h,04881D05h,0D9D4D039h,0E6DB99E5h,1FA27CF8h,0C4AC5665h
   DWord 0F4292244h,432AFF97h,0AB9423A7h,0FC93A039h,655B59C3h,8F0CCC92h,0FFEFF47Dh,85845DD1h,6FA87E4Fh,0FE2CE6E0h,0A3014314h,4E0811A1h,0F7537E82h,0BD3AF235h,2AD7D2BBh,0EB86D391h
 
 Rotation Byte 7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22
@@ -169,8 +169,7 @@ F PROC USES ECX
 mov EBX,TempB
 AND EBX,TempE	;EBX=(TempB AND TempE)
 mov ECX,TempB
-neg ECX
-dec ECX
+Not ECX
 AND ECX,TempD	;ECX=(NOT TempB AND TempD)
 OR EBX,ECX
 RET
@@ -185,8 +184,7 @@ G PROC USES EBX
 mov EBX,TempB
 AND EBX,TempD	;EBX= (TempB AND TempD)
 mov EDX,TempD
-neg EDX
-dec EDX
+Not EDX
 AND EDX,TempE	;EDX=(TempE AND NOT TempD)
 OR EDX,EBX
 RET
@@ -212,8 +210,7 @@ H ENDP
 I PROC USES EBX
 mov ECX,TempE
 mov EBX,TempD
-neg EBX
-dec EBX
+Not EBX
 OR EBX,TempB	;EBX=(TemoB OR NOT TempD)
 XOR ECX,EBX
 RET
@@ -228,6 +225,8 @@ I ENDP
 ;----------------------------------------------------------------------------
 MD5 PROC USES EDX ECX
 
+ror ebx,8
+
 ADD EAX,TempA							;EAX=(EAX ADD A)
 ADD EAX,EBX							;EAX=(EAX ADD EBX)
 PUSH ESI
@@ -238,13 +237,17 @@ mov CL,Rotation[ESI]
 ROL EAX,CL				;EAX=(EAX Rotated)
 POP ESI
 
-mov EDX,TempD
-mov ECX,TempE
-mov TempD,ECX
-mov ECX,TempB
-mov TempE,ECX
-add TempB,EAX 							;EAX=(EAX ADD B)
-mov TempA,EDX
+add eax,tempB
+mov tempA,eax
+
+mov eax,TempD
+mov ecx,TempE
+mov tempD,ecx
+mov ecx,tempb
+mov tempE,ecx
+mov ecx,tempA
+mov tempB,ecx
+mov TempA,eax
 
 RET
 MD5 ENDP
@@ -266,6 +269,8 @@ mov TempE,EAX
 mov EAX,D
 mov TempD,EAX
 pop EAX
+mov eax,tempD
+
 mov Rotationindex,0
 mov TIndex,0
 mov K,0
@@ -274,6 +279,8 @@ mov ECX,16
 FCall:
 PUSH EAX
 PUSH EBX
+mov eax,0
+mov ebx,0
 mov EBX,4
 mov AX,WORD PTR K
 mul BX
@@ -289,6 +296,7 @@ INC RotationIndex
 ADD TIndex,TYPE T
 INC K
 LOOP FCall
+
 ;------------------------------------------------------------------------------------
 
 mov K,0
@@ -398,7 +406,7 @@ ADD DI,BX
 Mov BX,0
 
 Clear:
-Mov BL,41h
+Mov BL,0
 Mov [DI],BL
 Inc DI
 LOOP Clear
@@ -439,9 +447,9 @@ Call ClearBuffer
 JMP AppendSize
 
 OneBuffer:
+
 Mov BL,80h
 OR [SI],BL
-
 AppendSize:
 Mov SI , offset Buffer
 Add SI,60
@@ -511,22 +519,26 @@ Call Padding
 PUSH EAX
 mov EAX,A
 call writehex
+call crlf
 mov HashedData[0],EAX
 mov EAX,B
 call writehex
+call crlf
 mov HashedData[4],EAX
 mov EAX,E
 call writehex
+call crlf
 mov HashedData[8],EAX
 mov EAX,D
 call writehex
+call crlf
 mov HashedData[12],EAX
 POP EAX
 call crlf
 mov SI,offset HashedData
 mov DX,offset FileFullPath
 inc dx
-;Call WriteEncryptedData
+Call WriteEncryptedData
 mov AH , 3Eh			;Close file
 int 21h
 call ResetData
