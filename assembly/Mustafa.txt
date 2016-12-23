@@ -195,27 +195,27 @@ G ENDP
 ;----------------------------------------------------------------------------
 ;The Third Funnction of MD5 Encryption (H(TempB,TempE,TempD)=TempB XOR TempE XOR TempD
 ;Recieves: Values of TempB,TempE,TempD
-;Returns EDX Contains the value returned form the equation
+;Returns EAX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 H PROC
-mov EDX,TempB
-XOR EDX,TempE	;EDX=(TempB XOR TempE)
-XOR EDX,TempD
+mov EAX,TempB
+XOR EAX,TempE	;EDX=(TempB XOR TempE)
+XOR EAX,TempD
 RET
 H ENDP
 
 ;----------------------------------------------------------------------------
 ;The Fourth Funnction of MD5 Encryption (I(TempB,TempE,TempD)=TempE XOR (TempB OR NOT TempD)
 ;Recieves: Values of B,E,D
-;Returns EDX Contains the value returned form the equation
+;Returns ECX Contains the value returned form the equation
 ;----------------------------------------------------------------------------
 I PROC USES EBX
-mov EDX,TempE
+mov ECX,TempE
 mov EBX,TempD
 neg EBX
 dec EBX
-OR EBX,TempB	;EBX=(TempB OR NOT TempD)
-XOR EDX,EBX
+OR EBX,TempB	;EBX=(TemoB OR NOT TempD)
+XOR ECX,EBX
 RET
 I ENDP
 
@@ -269,8 +269,8 @@ pop EAX
 mov Rotationindex,0
 mov TIndex,0
 mov K,0
-
 mov ECX,16
+
 FCall:
 PUSH EAX
 PUSH EBX
@@ -355,7 +355,10 @@ mov EBX,4
 mul EBX
 mov SI,offset BUFFER
 ADD SI,AX
+push ECX
 Call I
+Mov EAX,ECX
+pop ECX
 mov EBX,[SI]
 Call MD5
 INC RotationIndex
@@ -523,7 +526,7 @@ call crlf
 mov SI,offset HashedData
 mov DX,offset FileFullPath
 inc dx
-Call WriteEncryptedData
+;Call WriteEncryptedData
 mov AH , 3Eh			;Close file
 int 21h
 call ResetData
