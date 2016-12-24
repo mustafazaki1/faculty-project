@@ -252,27 +252,6 @@ MD5 ENDP
 ;Recieves:Nothing
 ;Returns :Nothing
 ;----------------------------------------------------------------------------
-printall proc uses eax
-mov eax,TempA
-call writedec
-mov al,' ' 
-call writechar
-mov eax,TempB
-call writedec
-mov al,' ' 
-call writechar
-mov eax,TempE
-call writedec
-mov al,' ' 
-call writechar
-mov eax,TempD
-call writedec
-mov al,' ' 
-call writechar
-call crlf
-
-ret
-printall endp
 MD5Controller PROC USES EAX EBX ECX EDX ESI EDI
 
 push EAX
@@ -312,7 +291,7 @@ INC RotationIndex
 ADD TIndex,TYPE T
 INC K
 LOOP FCall
-
+;call readint
 ;------------------------------------------------------------------------------------
 
 mov K,0
@@ -467,9 +446,11 @@ Mov BL,80h
 OR [SI],BL
 AppendSize:
 Mov SI , offset Buffer
-Add SI,60
-Mov EBX,DTA.FileSize
-Mov [SI],EBX
+Add SI,56
+Mov EAX,DTA.FileSize
+mov EBX,8
+mul EBX
+Mov [SI],EAX
 Call MD5Controller
 
 RET
