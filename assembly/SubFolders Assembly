@@ -1,0 +1,301 @@
+Include irvine16.inc
+
+FileControlBlock struc
+db 22 dup(?) ; header info 
+fileTime dw ? ; time stamp of file
+fileDate dw ? ; date stamp of file
+fileSize dd ? ; size of file
+fileName db 13 dup(0),0 ; name of file found by DOS
+FileControlBlock ends
+
+.data
+filespec db "C:\D\MyTest.txt",0
+FolderPath db 260 Dup(0),0
+DTA FileControlBlock <>
+filehandle dw ?
+FileFolderHandle dw ?
+bufferSize dw 3
+currsize dw ?
+cursor dw 0
+counter dw 3
+extension db "\*.txt",0
+pathfile db 13 DUP(?),0
+buffer db 100 dup(0),0
+
+.code
+main PROC
+mov ax,@data	; initialize DS
+mov ds,ax
+
+Subfolders:
+mov AH,3Dh			;Open file
+mov AL,2			;Choose the input mode(2 to read&write)
+mov dx,offset filespec
+int 21h
+JC Quit
+
+mov FileHandle,AX
+
+call SetCursor
+call GetSize
+call GetFolderPath
+;call writestring
+
+call FindFirstFile
+JC Break
+call GetFilePath
+call OpenFile
+call ReadFile
+call ClearBuffer
+call crlf
+call crlf
+
+NextFile:
+call FindNextFile
+JC Break
+call GetFilePath
+call OpenFile
+call ReadFile
+call crlf
+call crlf
+call ClearBuffer
+JMP NextFile
+
+Break:
+
+JMP Subfolders
+Quit::
+
+.EXIT 
+main ENDP
+
+SetCursor PROC
+push cx
+push dx
+
+mov cx,0
+mov dx,cursor
+
+mov ah,42h
+mov al,0			; method: offset from beginning
+mov bx,Filehandle
+int 21h				; locate the file pointer
+
+pop dx
+pop cx
+RET
+SetCursor ENDP
+
+GetSize PROC
+mov AH,3Fh				;Read from file
+mov BX,FileHandle
+mov CX,  3				;Number of bytes to read 
+mov DX,offset Buffer                                            
+int 21h 
+JC Quit
+
+cmp ax,0
+JE Quit
+
+call Conversion
+call ClearPathBuffer
+mov bx,BufferSize
+mov counter,bx
+add cursor,bx
+add cursor,3
+
+RET
+GetSize ENDP
+
+Conversion PROC
+mov si, offset Buffer
+mov ecx,0
+MOV CX,3
+MOV eax,0
+L1:
+mov ah,0
+mov dl,10
+mov bl,[si]
+sub bl,30h
+mul dl
+add al,bl
+inc si
+LOOP L1
+
+mov BufferSize,ax
+;call writeint
+;call crlf
+RET
+Conversion ENDP
+
+ClearPathBuffer PROC
+mov ecx,0
+mov cx,BufferSize
+mov si,offset Buffer
+
+Clear:
+mov byte ptr[si],0
+LOOP Clear
+mov counter,ax
+RET
+ClearPathBuffer ENDP
+
+GetFolderPath PROC
+mov AH,3Fh				;Read from file
+mov BX,FileHandle
+mov CX,  BufferSize		;Number of bytes to read 
+mov DX,offset Buffer                                              
+int 21h 
+JC Quit
+mov ax,buffersize
+
+mov cx,counter
+mov si,offset FolderPath
+mov di,dx
+;call writestring
+
+L:
+mov al,byte ptr[di]
+mov [si],al
+inc si
+inc di
+Loop L
+
+mov di,offset extension
+mov cx,7
+
+AppendExtension:
+mov al,byte ptr[di]
+mov [si],al
+inc si
+inc di
+Loop AppendExtension
+
+mov dx,offset FolderPath
+call writestring
+call crlf
+call crlf
+
+mov ah , 3Eh									;Close file
+int 21h
+RET
+GetFolderPath ENDP
+
+
+FindFirstFile PROC
+mov AH,1Ah						;Set DTA
+mov DX,offset DTA				;point DX to DTA returned by OS
+int 21h
+
+mov AH , 4Eh					;Dos function search for 1st matching file
+mov CX , 1						;Normal attribute
+mov DX , offset Folderpath
+int 21h    
+;JC Break                             ; call Dos
+
+mov dx,offset DTA.filename
+;call writestring
+;call crlf
+RET
+FindFirstFile ENDP
+
+FindNextFile PROC
+
+mov ah, 4Fh
+int 21h
+;JC Break
+
+mov dx,offset DTA.filename
+;call writestring
+;call crlf
+
+RET
+FindNextFile ENDP
+
+GetFilePath PROC USES ECX
+mov SI,offset FolderPath
+mov di ,offset pathfile
+mov dx,di
+
+CopyPath:					;Copy folder path into FileFullPath var
+CMP Byte Ptr [SI],'*'
+JE Break2
+mov AL,[SI]
+mov [DI],AL
+inc SI
+inc DI
+JMP CopyPath
+
+Break2:
+
+mov SI,offset DTA.FileName
+mov cx,lengthof DTA.FileName
+
+AppendFileName:						;Append file name to file full path
+;cmp Byte Ptr [SI],0
+;je Break1
+mov AL,[SI]
+mov [DI],AL
+inc SI
+inc DI
+LOOP AppendFileName
+Break1:
+
+mov dx,offset pathfile
+call writestring
+call crlf
+
+RET
+GetFilePath ENDP
+
+Readfile PROC
+mov eax,0
+
+READ:
+mov ah,3Fh                                      ; read from file or device
+mov bx,filehandle                               ; BX = file handle
+mov cx,  buffersize                             ; number of bytes to read 
+mov dx,offset buffer                            ; point to buffer                                              
+int 21h  
+
+call writestring
+call ClearBuffer								;This is just for testing in console
+jc quit
+cmp ax , 0
+je Done                                      
+;call writestring                               
+jmp READ
+
+Done:
+
+mov ah , 3Eh									;close file
+int 21h
+
+RET
+Readfile ENDP
+
+OpenFile PROC USES EAX
+
+mov AH,3Dh			;Open file
+mov AL,2			;Choose the input mode(2 to read&write)
+mov dx,offset pathfile
+int 21h
+JC Quit
+mov FileHandle,AX
+RET
+OpenFile ENDP
+
+ClearBuffer PROC USES ECX EDI EBX
+MOV ECX,0
+mov CX,BufferSize
+Mov DI,offset Buffer
+
+Clear:
+Mov BL,00h
+Mov [DI],BL
+Inc DI
+LOOP Clear
+
+RET
+ClearBuffer ENDP
+END main
